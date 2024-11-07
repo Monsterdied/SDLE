@@ -1,29 +1,21 @@
-CREATE TABLE users (
+CREATE TABLE user (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
-    email TEXT UNIQUE,
     password TEXT NOT NULL
 );
 
 CREATE TABLE shoppingList (
-    id TEXT PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     creator INTEGER NOT NULL,
-    deleted BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (creator) REFERENCES users(id)
 );
 
-CREATE TABLE items (
+CREATE TABLE item (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    quantity INTEGER DEFAULT 1
-);
-
-CREATE TABLE shoppingListItems (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    list_id TEXT NOT NULL,
-    item_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    list_id INTEGER NOT NULL,
     quantity INTEGER DEFAULT 1,
     FOREIGN KEY (list_id) REFERENCES shoppingList(id),
-    FOREIGN KEY (item_id) REFERENCES items(id)
+    quantity INTEGER DEFAULT 1
 );
