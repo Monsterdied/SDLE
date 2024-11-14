@@ -1,5 +1,7 @@
 // proxy.js
 const zmq = require('zeromq');
+const server = require('./server.js');
+
 
 async function run() {
     // Create frontend and backend sockets
@@ -18,14 +20,14 @@ async function run() {
 
     async function forwardMessages() {
         for await (const [routingInfo, ...parts] of frontend) {
-            console.log('Frontend received:', parts.map(p => p.toString()));
+            console.log('Frontend received:', parts.toString());
             await backend.send([routingInfo, ...parts]);
         }       
     }
 
     async function backwardMessages() {
         for await (const parts of backend) {
-            console.log('Backend received:', parts.map(p => p.toString()));
+            console.log('Backend received:', parts.toString());
             await frontend.send(parts);
         }
     }
@@ -46,7 +48,7 @@ async function run() {
 // Start servers
 const serversPorts = [5000, 5001, 5002, 5003];
 for (const port of serversPorts) {
-    require('./server').run(port);
+    server.run(port);
     console.log(`Server started on port ${port}`);
 }
 
