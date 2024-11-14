@@ -1,3 +1,4 @@
+// server.js
 const zmq = require('zeromq');
 
 async function run(port) {
@@ -7,9 +8,10 @@ async function run(port) {
     console.log(`Server bound to port ${port}`);
 
     for await (const [msg] of sock) {
-        console.log('Received:', msg.toString());
-        await sock.send('World');
+        console.log(`Received on port ${port}:`, msg.toString());
+        await sock.send(`World from ${port}`);
+        console.log(`Sent from port ${port}: World`);
     }
 }
 
-moduler.exports = {run};
+module.exports = { run };

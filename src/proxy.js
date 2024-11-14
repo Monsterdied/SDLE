@@ -1,32 +1,53 @@
+// proxy.js
 const zmq = require('zeromq');
-const server = require('./server.js');
-
-const context = new zmq.Context()
 
 async function run() {
-
-    const backend = new zmq.Router(context);
-    const frontend = new zmq.Dealer(context);
-
-    await backend.bind('tcp://*:6000');
-    console.log('Backend bound to port 6000');
+    // Create frontend and backend sockets
+    const frontend = new zmq.Router();
+    const backend = new zmq.Dealer();
 
     await frontend.bind('tcp://*:7000');
     console.log('Frontend bound to port 7000');
 
-    const proxy = new zmq.Proxy(frontend, backend);
+    // Connect backend to all server instances
+    const serverPorts = [5000, 5001, 5002, 5003];
+    for (const port of serverPorts) {
+        await backend.connect(`tcp://localhost:${port}`);
+        console.log(`Backend connected to server on port ${port}`);
+    }
 
-    proxy.run();
-    console.log('Proxy running');
+    async function forwardMessages() {
+        for await (const [routingInfo, ...parts] of frontend) {
+            console.log('Frontend received:', parts.map(p => p.toString()));
+            await backend.send([routingInfo, ...parts]);
+        }       
+    }
 
+    async function backwardMessages() {
+        for await (const parts of backend) {
+            console.log('Backend received:', parts.map(p => p.toString()));
+            await frontend.send(parts);
+        }
+    }
+
+    Promise.all([
+        forwardMessages(),
+        backwardMessages()
+    ]);
+
+    // Handle cleanup
+    process.on('SIGINT', () => {
+        frontend.close();
+        backend.close();
+        process.exit();
+    });
 }
 
-const serversPorts = [5000,50001,5002,5003]
+// Start servers
+const serversPorts = [5000, 5001, 5002, 5003];
 for (const port of serversPorts) {
-    server.run(port);
-    console.log(`Server running on port ${port}`);
+    require('./server').run(port);
+    console.log(`Server started on port ${port}`);
 }
 
-
-run(); 
-
+run();
