@@ -7,10 +7,6 @@ class PNCounter{
         this.pCounters[id] = 0;
         this.nCounters[id] = 0;
     }
-    merge(other_value, other_version){
-        this.value=Math.max(this.value, other_value);
-        this.version=Math.max(this.version, other_version);
-    }
     increment(val) {
         this.pCounters[this.id]+= val;
     }

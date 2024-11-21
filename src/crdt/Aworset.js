@@ -1,6 +1,6 @@
 import {PNCounter} from "./PNCounter.js";
 class Aworset{
-    constructor(id, loaded, listname){
+    constructor(id, listname){
         this.id = id;
         this.counter=0;
         this.listname = listname;
@@ -77,7 +77,7 @@ class Aworset{
         }
 
         // Merge removals
-        console.log(other.removedItems);
+        //console.log(other.removedItems);
         for (const removedItem of other.removed_items) {
             this.removed_items.add(removedItem);
         }

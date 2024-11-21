@@ -31,6 +31,7 @@ bobList.addItem('eggs', 6);
 
 // Merge the lists
 aliceList.merge(bobList);
+bobList.merge(aliceList);
 
 // Check the combined list
 console.log(aliceList.getItems());
@@ -43,12 +44,30 @@ console.log(aliceList.getItems());
 
 // Remove some quantity
 aliceList.removeQuantity('milk', 1);
-console.log(aliceList.getQuantity('milk')); // 2
+console.log("milk quantity "+aliceList.getQuantity('milk'),"\n"); // 2
 
 // Remove an item completely
 aliceList.removeItem('bread');
-console.log(aliceList.getItems()); // bread won't appear in the list
+console.log("removed bread",aliceList.getItems()); // bread won't appear in the list
 
 //add bread
 aliceList.addItem('bread', 1);
-console.log(aliceList.getItems());
+console.log("added bread",aliceList.getItems());
+
+// crate more test
+aliceList.addItem('milk', 1);
+console.log("added milk",aliceList.getItems());
+
+aliceList.merge(bobList);
+console.log("merged with alice",bobList.getItems());
+aliceList.removeItem('milk');
+bobList.merge(aliceList);
+aliceList.merge(bobList);
+console.log("removed milk and merged",bobList.getItems());
+
+
+
+aliceList.removeItem('milk');
+
+aliceList.removeQuantity('milk', 1);
+
