@@ -1,6 +1,6 @@
 
 class PNCounter{
-    constructor(id,value=0, version=0){
+    constructor(id){
         this.id = id;
         this.pCounters = {};
         this.nCounters = {};

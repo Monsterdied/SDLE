@@ -51,7 +51,7 @@ class Aworset{
                 if(quantity>0){
                     active_items[item_name] = {
                         quantity:quantity,
-                        addedBy: item.addedby
+                        addedby: item.addedby
                     };
                 }
             }
@@ -59,8 +59,6 @@ class Aworset{
         return active_items;
     }
     merge(other) {
-        // Update counter
-        this.counter = Math.max(this.counter, other.counter) + 1;
 
         // Merge items
         for (const [itemName, otherItem] of other.items) {
@@ -68,7 +66,7 @@ class Aworset{
                 // New item, copy it
                 this.items.set(itemName, {
                     id: otherItem.id,
-                    counter: new PNCounter(this.replicaId),
+                    counter: new PNCounter(this.id),
                     addedby: otherItem.addedby
                 });
             }
@@ -83,8 +81,57 @@ class Aworset{
         }
     }
 
+    toString() {
+        // Prepare serializable object
+        const serializable = {
+            id: this.id,
+            counter: this.counter,
+            listname: this.listname,
+            items: Array.from(this.items.entries()).map(([name, item]) => ({
+                name: name,
+                id: item.id,
+                addedby: item.addedby,
+                counter: {
+                    pCounters: item.counter.pCounters,
+                    nCounters: item.counter.nCounters
+                }
+            })),
+            removed_items: Array.from(this.removed_items)
+        };
 
+        // Convert to JSON string
+        return JSON.stringify(serializable);
+    }
 
-
+    // New static fromString method to deserialize the Aworset
+    static fromString(jsonString) {
+        // Parse the JSON string
+        const parsed = JSON.parse(jsonString);
+        
+        // Create a new Aworset instance
+        const aworset = new Aworset(parsed.id, parsed.listname);
+        
+        // Restore counter
+        aworset.counter = parsed.counter;
+        
+        // Restore items
+        parsed.items.forEach(itemData => {
+            // Recreate the item with its counter
+            const pnCounter = new PNCounter(aworset.id);
+            pnCounter.pCounters = itemData.counter.pCounters;
+            pnCounter.nCounters = itemData.counter.nCounters;
+            
+            aworset.items.set(itemData.name, {
+                id: itemData.id,
+                counter: pnCounter,
+                addedby: itemData.addedby
+            });
+        });
+        
+        // Restore removed items
+        aworset.removed_items = new Set(parsed.removed_items);
+        
+        return aworset;
+    }
 }
 export {Aworset};

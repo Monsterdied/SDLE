@@ -1,73 +1,117 @@
 import { PNCounter } from "./PNCounter.js";
-import {Aworset} from "./Aworset.js";
+import { Aworset } from "./Aworset.js";
 
+// PNCounter Tests
+function runPNCounterTests() {
+    console.log("PNCounter Tests:");
+    let counter1 = new PNCounter(1);
+    let counter2 = new PNCounter(2);
 
-let counter1 = new PNCounter(1);
-let counter2 = new PNCounter(2);
+    counter1.increment(1);
+    counter2.increment(1);
+    console.log("Initial increment test:");
+    console.log("Counter1 value:", counter1.getValue(), "Expected: 1");
+    console.log("Counter2 value:", counter2.getValue(), "Expected: 1");
 
-counter1.increment(1);
-counter2.increment(1);
-console.log(counter1.getValue()==1);
-console.log(counter2.getValue()==1);
-counter1.merge(counter2);
-counter2.merge(counter1);
-counter1.decrement(1);
-//print in terminal
-console.log(counter1.getValue()==1);
-console.log(counter2.getValue()==2);
+    counter1.merge(counter2);
+    counter2.merge(counter1);
+    counter1.decrement(1);
+    
+    console.log("After merge and decrement:");
+    console.log("Counter1 value:", counter1.getValue(), "Expected: 1");
+    console.log("Counter2 value:", counter2.getValue(), "Expected: 2");
+}
 
-console.log("AWORSET TESTS");
-const aliceList = new Aworset('replica1');
-const bobList = new Aworset('replica2');
+// Aworset Tests
+function runAworsetTests() {
+    console.log("\nAworset Tests:");
+    
+    // Test 1: Basic Item Addition
+    const aliceList = new Aworset('replica1', 'Alices List');
+    const bobList = new Aworset('replica2', 'Bobs List');
 
+    console.log("\nTest 1: Basic Item Addition");
+    aliceList.addItem('milk', 2);
+    aliceList.addItem('bread', 1);
 
-// Alice adds items
-aliceList.addItem('milk', 2);
-aliceList.addItem('bread', 1);
+    console.log("Alice's list items:", aliceList.getItems());
 
-// Bob adds items
-bobList.addItem('milk', 1);
-bobList.addItem('eggs', 6);
+    bobList.addItem('milk', 1);
+    bobList.addItem('eggs', 6);
+    console.log("Bob's list items:", bobList.getItems());
 
-// Merge the lists
-aliceList.merge(bobList);
-bobList.merge(aliceList);
+    // Test 2: Merging Lists
+    console.log("\nTest 2: Merging Lists");
+    console.log("debug", aliceList.toString());
+    aliceList.merge(bobList);
+    console.log("debug", aliceList.toString());
+    bobList.merge(aliceList);
+    console.log("Merged Alice's list:", aliceList.getItems());
+    console.log("Merged Bob's list:", bobList.getItems());
 
-// Check the combined list
-console.log(aliceList.getItems());
-// Output will be something like:
-// {
-//   milk: { quantity: 3, addedBy: 'alice' },
-//   bread: { quantity: 1, addedBy: 'alice' },
-//   eggs: { quantity: 6, addedBy: 'bob' }
-// }
+    // Test 3: Removing Quantities
+    console.log("\nTest 3: Removing Quantities");
+    aliceList.removeQuantity('milk', 1);
+    console.log("Milk quantity after removal:", aliceList.getQuantity('milk'));
 
-// Remove some quantity
-aliceList.removeQuantity('milk', 1);
-console.log("milk quantity "+aliceList.getQuantity('milk'),"\n"); // 2
+    // Test 4: Removing Items
+    console.log("\nTest 4: Removing Items");
+    aliceList.removeItem('bread');
+    console.log("List after removing bread:", aliceList.getItems());
 
-// Remove an item completely
-aliceList.removeItem('bread');
-console.log("removed bread",aliceList.getItems()); // bread won't appear in the list
+    // Test 5: Re-adding Removed Items
+    console.log("\nTest 5: Re-adding Removed Items");
+    aliceList.addItem('bread', 1);
+    console.log("List after re-adding bread:", aliceList.getItems());
 
-//add bread
-aliceList.addItem('bread', 1);
-console.log("added bread",aliceList.getItems());
+    // Test 6: Multiple Additions and Merging
+    console.log("\nTest 6: Multiple Additions and Merging");
+    aliceList.addItem('milk', 1);
+    console.log("Alice's list after adding milk:", aliceList.getItems());
 
-// crate more test
-aliceList.addItem('milk', 1);
-console.log("added milk",aliceList.getItems());
+    aliceList.merge(bobList);
+    console.log("Alice's list after merging with Bob's:", aliceList.getItems());
 
-aliceList.merge(bobList);
-console.log("merged with alice",bobList.getItems());
-aliceList.removeItem('milk');
-bobList.merge(aliceList);
-aliceList.merge(bobList);
-console.log("removed milk and merged",bobList.getItems());
+    // Test 7: Removing and Merging
+    console.log("\nTest 7: Removing and Merging");
+    aliceList.removeItem('milk');
+    bobList.merge(aliceList);
+    aliceList.merge(bobList);
+    console.log("Bob's list after removing milk and merging:", bobList.getItems());
 
+    // Test 8: Serialization and Deserialization
+    console.log("\nTest 8: Serialization and Deserialization");
+    const serializedList = aliceList.toString();
+    const deserializedList = Aworset.fromString(serializedList);
+    console.log("Original list items:", aliceList.getItems());
+    console.log("Deserialized list items:", deserializedList.getItems());
 
+    // Test 9: Concurrent Modifications
+    console.log("\nTest 9: Concurrent Modifications");
+    const list1 = new Aworset('replica1', 'Concurrent Test');
+    const list2 = new Aworset('replica2', 'Concurrent Test');
 
-aliceList.removeItem('milk');
+    list1.addItem('apple', 3);
+    list2.addItem('apple', 2);
+    list1.merge(list2);
+    list2.merge(list1);
+    console.log("Concurrent apple quantity:", list1.getQuantity('apple'));
 
-aliceList.removeQuantity('milk', 1);
+    // Test 10: toString and fromString
+    console.log("\nTest 10: toString and fromString");
+    const serialstring = aliceList.toString();
+    const deserialized = Aworset.fromString(serialstring);
+    console.log("Original list items:", serializedList);
+    console.log("Original list items:", aliceList.getItems());
+    console.log("Deserialized list items:", deserialized.getItems());
 
+}
+
+// Run all tests
+function runAllTests() {
+    runPNCounterTests();
+    runAworsetTests();
+}
+
+// Execute the tests
+runAllTests();
