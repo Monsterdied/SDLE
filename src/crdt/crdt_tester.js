@@ -42,9 +42,9 @@ function runAworsetTests() {
 
     // Test 2: Merging Lists
     console.log("\nTest 2: Merging Lists");
-    console.log("debug", aliceList.toString());
+    console.log("debug", aliceList.toJson());
     aliceList.merge(bobList);
-    console.log("debug", aliceList.toString());
+    console.log("debug", aliceList.toJson());
     bobList.merge(aliceList);
     console.log("Merged Alice's list:", aliceList.getItems());
     console.log("Merged Bob's list:", bobList.getItems());
@@ -81,8 +81,8 @@ function runAworsetTests() {
 
     // Test 8: Serialization and Deserialization
     console.log("\nTest 8: Serialization and Deserialization");
-    const serializedList = aliceList.toString();
-    const deserializedList = Aworset.fromString(serializedList);
+    const serializedList = aliceList.toJson();
+    const deserializedList = Aworset.fromJson(serializedList);
     console.log("Original list items:", aliceList.getItems());
     console.log("Deserialized list items:", deserializedList.getItems());
 
@@ -98,7 +98,7 @@ function runAworsetTests() {
     console.log("Concurrent apple quantity:", list1.getQuantity('apple'));
 
     // Test 10: toString and fromString
-    console.log("\nTest 10: toString and fromString");
+    console.log("\nTest 10: toJson and fromJson");
 
     aliceList.addItem('milk', 1);
     aliceList.addItem('potatoes', 30);
@@ -122,13 +122,13 @@ function runAworsetTests() {
     aliceList.merge(bobList);
 
     
-    const serialstring = aliceList.toString();
-    const deserialized = Aworset.fromString(serialstring);
+    const serialstring = aliceList.toJson();
+    const deserialized = Aworset.fromJson(serialstring);
     //console.log("Original list items:", serializedList,"\n");
     console.log("Original list items:", aliceList.getItems(),"\n\n");
-    console.log("Original to string:", aliceList.toString(),"\n\n");
-    console.log("Deserialized list items:", Aworset.fromString(aliceList.toString()).toString(),"\n\n");
-    console.log("Deserialized to string:", deserialized.toString(),"\n\n");
+    console.log("Original to string:", aliceList.toJson(),"\n\n");
+    console.log("Deserialized list items:", Aworset.fromJson(aliceList.toJson()).toJson(),"\n\n");
+    console.log("Deserialized to string:", deserialized.toJson(),"\n\n");
 
     console.log("This must be equal:", deserialized.getItems(),"\n");
     console.log("This must be equal:", aliceList.getItems(),"\n");

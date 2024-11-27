@@ -8,10 +8,13 @@ class Aworset{
         this.removed_items = new Set();
 
     }
+    // Generate a unique ID for this machine
     generate_id(){
         this.counter++;
         return this.counter;
     }
+
+    // Add an item to the list you especify the quantity
     addItem(item_name,quantity=1){
         if(!this.items.has(item_name)){
             this.items.set(item_name,{
@@ -25,17 +28,20 @@ class Aworset{
         item.counter.increment(quantity);
         this.removed_items.delete(item_name);
     }
+    // Remove a quantity of an item
     removeQuantity(item_name,quantity=1){
         if(this.items.has(item_name)){
             const item = this.items.get(item_name);
             item.counter.decrement(quantity)
         }
     }
+    // Remove all items from the list
     removeItem(item_name){
         if(this.items.has(item_name)){
             this.removed_items.add(item_name)
         }
     }
+    // Get the quantity of an item
     getQuantity(item_name){
         if(!this.items.has(item_name) || this.removed_items.has(item_name)){
             return 0;
@@ -43,6 +49,7 @@ class Aworset{
         return this.items.get(item_name).counter.getValue();
     }
 
+    // Get all the items in the list
     getItems(){
         const active_items = new Map();
         for (let [item_name, item] of this.items){
@@ -58,6 +65,8 @@ class Aworset{
         }
         return active_items;
     }
+
+    // Merge two Aworsets
     merge(other) {
 
         // Merge items
@@ -81,7 +90,8 @@ class Aworset{
         }
     }
 
-    toString() {
+    // Serialize the Aworset to a JSON string
+    toJson() {
         // Prepare serializable object
         const serializable = {
             id: this.id,
@@ -103,8 +113,8 @@ class Aworset{
         return JSON.stringify(serializable);
     }
 
-    // New static fromString method to deserialize the Aworset
-    static fromString(jsonString) {
+    //  Deserialize an Aworset from a JSON string
+    static fromJson(jsonString) {
         // Parse the JSON string
         const parsed = JSON.parse(jsonString);
         
