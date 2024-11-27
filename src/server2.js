@@ -2,17 +2,25 @@
 const zmq = require('zeromq');
 
 async function run(port) {
-    const sock = new zmq.Reply();
+    const sock = new zmq.Dealer();
 
     try {
         await sock.connect(`tcp://localhost:6000`);
         console.log(`Server ${process.pid} connected to proxy on port 6000`);
+        sock.identity = `${port}`;
 
-        for await (const [msg] of sock) {
-            console.log(`Worker ${process.pid} received:`, msg.toString());
-            await sock.send(`World from worker ${process.pid} on port ${port}`);
-            console.log(`Worker ${process.pid} sent response`);
-        }
+        worker.on('message', (...frames) => {
+            const clientAddress = frames[0];
+            const message = frames[1].toString();
+            
+            console.log(`${workerId} processing: ${message}`);
+            
+            // Simulate work processing
+            const result = `Processed by ${port}: ${message}`;
+            
+            // Send response back through proxy
+            worker.send([clientAddress, result]);
+          });
     } catch (err) {
         console.error(`Worker ${process.pid} error:`, err);
     }

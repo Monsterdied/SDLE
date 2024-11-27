@@ -3,12 +3,12 @@ const zmq = require('zeromq');
 
 async function run() {
     const sock = new zmq.Request();
-    sock.connect('tcp://localhost:7000');
-    console.log('Client connected to port 7000');
+    sock.connect('tcp://localhost:5555');
+    console.log('Client connected to port 5555');
 
-    while (true) {
-        await sock.send('Hello');
-        console.log('Sent: Hello');
+    for (let i = 0; i < 10; i++) {
+        await sock.send(`${i}:Hello`);
+        console.log(`Sent: ${i}:Hello`);
 
         const [result] = await sock.receive();
         console.log('Received:', result.toString());
