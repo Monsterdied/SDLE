@@ -1,5 +1,6 @@
 const zmq = require('zeromq');
 const ConsistentHash = require('./consistent_hash');
+const mutex = require('async-mutex');
 
 // ============ Coordinator Node ============
 class Coordinator {
@@ -13,6 +14,7 @@ class Coordinator {
         this.nodeHeartbeats = new Map();
         this.node_id_to_identifiers = new Map();
         this.tokens_to_request = new Map();
+        this.register_lock = new mutex.Mutex();
     }
 
     async initialize() {
@@ -53,6 +55,7 @@ class Coordinator {
                 const [token1,key1,crdt] = rest;
                 console.log('CORDINATOR Request:', key1.toString(), token1.toString());
                 const portId1 = this.consistentHash.getNode(key1.toString());
+                console.log('CORDINATOR Node chossed:', portId1.toString());
                 const identity2 = this.node_id_to_identifiers.get(portId1);
                 await this.router.send( [identity2,'SET', token1,key1,crdt]);
                 this.tokens_to_request.set(token1.toString(), [Date.now(),identity,'SET',key1,crdt]);
@@ -83,10 +86,12 @@ class Coordinator {
         }
     }
     registerNode(identity, address) {
+        this.register_lock.acquire();
         this.consistentHash.addNode(address);
         this.node_id_to_identifiers.set(address, identity);
         this.nodeHeartbeats.set(identity.toString(), Date.now());
         this.publisher.send(['TOPOLOGY_UPDATE', JSON.stringify(Array.from(this.consistentHash.nodes))]);
+        this.register_lock.release();
     }
 
     updateHeartbeat(identity) {

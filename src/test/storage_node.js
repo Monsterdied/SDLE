@@ -11,6 +11,7 @@ class StorageNode {
         //this.coordinatorAddress = coordinatorAddress;
         this.coordinatorPort = coordinatorPort;
         this.publishPort = publishPort;
+        this.storage = new Map();
     }
 
     async initialize() {
@@ -23,12 +24,10 @@ class StorageNode {
         this.subscriber.subscribe('TOPOLOGY_UPDATE');
         // Register with coordinator
         await this.dealer.send(['REGISTER', `${this.nodePort}`]);
-        await Promise.all([
-            this.handleTopologyUpdates(),
-            this.receivePackets()
-        ]);
-        // Start heartbeat
         this.startHeartbeat();
+        this.handleTopologyUpdates();
+        this.receivePackets();
+        // Start heartbeat
         
 
     }
@@ -51,11 +50,16 @@ class StorageNode {
                 case 'GET':
                     console.log('Received heartbeat');
                     console.log(packet);
-                    this.dealer.send(['GET_RESPONSE',token, 'OK']);
+                    if (this.storage.has(packet[0].toString())) {
+                        this.dealer.send(['GET_RESPONSE',token, this.storage.get(packet[0].toString())]);
+                    }else{
+                        this.dealer.send(['GET_RESPONSE',token, 'NOT_FOUND']);
+                    }
                     break;
                 case 'SET':
                     console.log('SET request received');
                     console.log(packet.toString());
+                    this.storage.set(packet[0].toString(), packet[1].toString());
                     this.dealer.send(['SET_RESPONSE',token, 'OK']);
                     break;
             }
@@ -65,6 +69,7 @@ class StorageNode {
     startHeartbeat() {
         setInterval(async () => {
             try {
+                console.log(`Sending heartbeat node ${this.nodePort}`);
                 await this.dealer.send(['HEARTBEAT']);
             } catch (err) {
                 console.error('Failed to send heartbeat:', err);

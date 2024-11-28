@@ -10,24 +10,30 @@ async function main() {
     console.log('Coordinator started');
 
     // Start Storage Node
-    const storageNode = new StorageNode(5557, 5555, 5556);
-    storageNode.initialize();
-    console.log('Storage Node started');
-
+    for (let i = 5557; i < 5570; i++) {
+        const storageNode = new StorageNode(i, 5555, 5556);
+        storageNode.initialize();
+        console.log(`Storage Node ${i} started`);
+    }
     // Give some time for nodes to initialize
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    for (let i = 0; i < 30; i++) {
+        test(i);
+    }
     // Start Client
-    const client = new Client('localhost', 5555,1);
+
+}
+async function test(id){
+    const client = new Client('localhost', 5555,id);
     await client.initialize();
     console.log('Client started');
 
     // Perform SET operation
-    const setStatus = await client.set('key1', 'value1');
+    const setStatus = await client.set(`key${id}`, `value${id}`);
     console.log('tester SET status:', setStatus);
 
     // Perform GET operation
-    const getValue = await client.get('key1');
+    const getValue = await client.get(`key${id}`);
     console.log('Tester GET value:', getValue.toString());
 }
 

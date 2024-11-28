@@ -1,4 +1,5 @@
 const zmq = require('zeromq');
+const mutex = require('async-mutex');
 class Client {
     constructor(coordinatorAddress, coordinatorPort,client_id) {
         this.dealer = new zmq.Dealer();
@@ -8,6 +9,8 @@ class Client {
         this.localStore = new Map();
         this.client_id =client_id;
         this.client_request_id = 0;
+        //mutex for testing
+        this.mutex = new mutex.Mutex();
     }
 
     async initialize() {
@@ -15,7 +18,9 @@ class Client {
     }
 
     get_token(){
+        this.mutex.acquire();
         this.client_request_id++;
+        this.mutex.release();
         return `${this.client_id},${this.client_request_id}`;
     }
     async set(key, value) {
@@ -28,8 +33,8 @@ class Client {
     async get(key) {
         const token = this.get_token();
         await this.dealer.send(['GET_CLIENT',token, key]);
-        const [value] = await this.dealer.receive();
-        return value.toString();
+        const [type,result] = await this.dealer.receive();
+        return result.toString();
     }
 }
 module.exports = { Client };
