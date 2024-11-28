@@ -44,19 +44,19 @@ class StorageNode {
     async receivePackets() {
         while (true) {
             console.log('Waiting for packets...');
-            const [identity,type,...packet] = await this.dealer.receive();// TODO probably expand this to make paralel requests
+            const [type,token,...packet] = await this.dealer.receive();// TODO probably expand this to make paralel requests
             // Handle the received packet
             console.log(`NODE Received packet: ${packet}`);
             switch (type.toString()) {
                 case 'GET':
                     console.log('Received heartbeat');
                     console.log(packet);
-                    this.dealer.send([identity,'GET_RESPONSE', 'OK']);
+                    this.dealer.send(['GET_RESPONSE',token, 'OK']);
                     break;
                 case 'SET':
                     console.log('SET request received');
-                    console.log(packet);
-                    this.dealer.send([identity,'SET_RESPONSE', 'OK']);
+                    console.log(packet.toString());
+                    this.dealer.send(['SET_RESPONSE',token, 'OK']);
                     break;
             }
         }

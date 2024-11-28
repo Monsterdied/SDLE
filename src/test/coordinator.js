@@ -12,6 +12,7 @@ class Coordinator {
         this.publishPort = publishPort;
         this.nodeHeartbeats = new Map();
         this.node_id_to_identifiers = new Map();
+        this.tokens_to_request = new Map();
     }
 
     async initialize() {
@@ -38,22 +39,46 @@ class Coordinator {
                 console.log('Received heartbeat from', identity.toString());
                 this.updateHeartbeat(identity.toString());
                 break;
+            //Client requests
             case 'GET_CLIENT':
-                const [key] = rest;
+                const [token,key] = rest;
+                console.log('CORDINATOR Request:', key.toString(), token.toString());
                 const portId = this.consistentHash.getNode(key.toString());
                 const identity1 = this.node_id_to_identifiers.get(portId);
                 console.log('CORDINATOR Response:', identity1.toString());
-                const response = await this.router.send( [identity1,'GET', key]);
-                await this.router.send([identity, 'RESPONSE', response]);
+                await this.router.send( [identity1,'GET',token, key]);
+                this.tokens_to_request.set(token.toString(), [Date.now(),identity,'GET',key]);
                 break;
-            //Client requests
             case 'SET_CLIENT':
-                const [key1] = rest;
+                const [token1,key1,crdt] = rest;
+                console.log('CORDINATOR Request:', key1.toString(), token1.toString());
                 const portId1 = this.consistentHash.getNode(key1.toString());
                 const identity2 = this.node_id_to_identifiers.get(portId1);
-                const response1 = await this.router.send( [identity2,'SET', key1]);
-                console.log('CORDINATOR Response:', response1.toString());
-                await this.router.send([identity, 'RESPONSE', response1]);
+                await this.router.send( [identity2,'SET', token1,key1,crdt]);
+                this.tokens_to_request.set(token1.toString(), [Date.now(),identity,'SET',key1,crdt]);
+                //console.log('CORDINATOR Response:', response1.toString());
+                break;
+            //reply from node
+            case 'GET_RESPONSE':
+                const [token2, ...value] = rest;
+                if(this.tokens_to_request.get(token2.toString())){
+                    const [time,identity_Return,...rest] = this.tokens_to_request.get(token2.toString());
+                    this.tokens_to_request.delete(token2.toString());
+                    await this.router.send([identity_Return, 'RESPONSE', value]);
+                }else{
+                    console.log('CORDINATOR GET_REPONSE TIMEOUT:', token2.toString());
+                }
+                break;
+            case 'SET_RESPONSE':
+                const [token3, ...value3] = rest;
+                if(this.tokens_to_request.get(token3.toString())){
+                    const [time,identity_Return3,...rest] = this.tokens_to_request.get(token3.toString());
+                    this.tokens_to_request.delete(token3.toString());
+                    console.log('CORDINATOR SET_REPONSE:', value3.toString());
+                    await this.router.send([identity_Return3, 'RESPONSE', value3]);
+                }else{
+                    console.log('CORDINATOR GET_REPONSE TIMEOUT:', token2.toString());
+                }
                 break;
         }
     }
@@ -81,6 +106,16 @@ class Coordinator {
                         this.publisher.send(['TOPOLOGY_UPDATE', 
                             JSON.stringify(Array.from(this.consistentHash.nodes))]);
                     }
+                }
+            }
+        }, 5000); // Check every 5 seconds
+    }
+    monitorRequests() {
+        setInterval(() => {
+            const now = Date.now();
+            for (const [identity, [lastBeat,type,...rest]] of this.tokens_to_request) {
+                if (now - lastBeat > 10000) { // 10 seconds timeout
+                    //handle timeout request
                 }
             }
         }, 5000); // Check every 5 seconds

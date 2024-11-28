@@ -18,17 +18,17 @@ async function main() {
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Start Client
-    const client = new Client('localhost', 5555);
+    const client = new Client('localhost', 5555,1);
     await client.initialize();
     console.log('Client started');
 
     // Perform SET operation
     const setStatus = await client.set('key1', 'value1');
     console.log('tester SET status:', setStatus);
-/*
+
     // Perform GET operation
     const getValue = await client.get('key1');
-    console.log('Tester GET value:', getValue);*/
+    console.log('Tester GET value:', getValue.toString());
 }
 
 main().catch(err => console.error(err));
