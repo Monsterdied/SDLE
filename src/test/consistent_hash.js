@@ -28,8 +28,8 @@ class ConsistentHash {
         if (this.ring.size === 0) return null;
 
         const hash = this.getHash(key);
-        const sortedHashes = Array.from(this.ring.keys()).sort((a, b) => a - b);
-        
+        const sortedHashes = Array.from(this.ring.keys()).sort();
+        //sortedHashes.forEach((h) => console.log(h));
         // Find the first hash >= our key's hash
         for (const h of sortedHashes) {
             if (h >= hash) return this.ring.get(h);
@@ -40,7 +40,7 @@ class ConsistentHash {
     }
 
     getHash(key) {
-        return crypto.createHash('md5').update(key).digest('hex');
+        return crypto.createHash('sha1').update(key).digest('hex');
     }
 }
 module.exports = ConsistentHash;

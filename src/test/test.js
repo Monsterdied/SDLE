@@ -2,7 +2,7 @@ const zmq = require('zeromq');
 const { Coordinator } = require('./coordinator');
 const { StorageNode } = require('./storage_node');
 const { Client } = require('./client');
-
+const ConsistentHash = require('./consistent_hash');
 async function main() {
     // Start Coordinator
     const coordinator = new Coordinator(5555, 5556);
@@ -37,4 +37,12 @@ async function test(id){
     console.log('Tester GET value:', getValue.toString());
 }
 
-main().catch(err => console.error(err));
+//main().catch(err => console.error(err));
+//test hash table
+const consistent_hash = new ConsistentHash();
+for (let i = 5569; i > 5562; i--) {
+    consistent_hash.addNode(i);
+}
+for (let i = 0; i < 1000; i++) {
+    console.log(consistent_hash.getNode(`key${i}`));
+}
