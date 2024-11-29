@@ -43,6 +43,7 @@ const consistent_hash = new ConsistentHash();
 for (let i = 5569; i > 5562; i--) {
     consistent_hash.addNode(i);
 }
+consistent_hash.removeNode(5563);
 for (let i = 0; i < 1000; i++) {
     console.log(consistent_hash.getNode(`key${i}`));
 }
