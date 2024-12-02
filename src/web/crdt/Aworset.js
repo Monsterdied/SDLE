@@ -1,6 +1,6 @@
 import {PNCounter} from "./PNCounter.js";
 class Aworset{
-    constructor(id, listname){
+    constructor(id=0, listname="none"){
         this.id = id;
         this.counter=0;
         this.listname = listname;
@@ -61,6 +61,31 @@ class Aworset{
             }
         }
         return active_items;
+    }
+
+    toFormattedJson() {
+        const items = Array.from(this.items.entries()).map(([name, item]) => ({
+            name: name,
+            quantity: item.counter.getValue()
+        }));
+
+        const formatted = {
+            listname: this.listname,
+            items: items
+        };
+
+        return formatted;
+    }
+
+    static FromFormattedJson(id,formatted) {
+        this.id = id;
+        this.listname = formatted.listname;
+        this.items = new Map(formatted.items.map(item => [
+            item.name,
+            {
+                counter: new PNCounter(this.id, item.quantity)
+            }
+        ]));
     }
 
     // Merge two Aworsets
