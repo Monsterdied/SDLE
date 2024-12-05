@@ -78,7 +78,7 @@ class Coordinator {
                     const [time,identity_Return3,...rest] = this.tokens_to_request.get(token3.toString());
                     this.tokens_to_request.delete(token3.toString());
                     console.log('CORDINATOR SET_REPONSE:', value3.toString());
-                    await this.router.send([identity_Return3, 'RESPONSE', value3]);
+                    await this.router.send([identity_Return3, value3]);
                 }else{
                     console.log('CORDINATOR GET_REPONSE TIMEOUT:', token2.toString());
                 }
