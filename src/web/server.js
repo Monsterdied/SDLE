@@ -20,7 +20,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const LISTS_FILE = path.join(__dirname, 'data', 'lists.json');
 
-let crdt_list = new Aworset('server', 'Shopping List');
 
 let Map_of_shopping_lists = new Map();
 
