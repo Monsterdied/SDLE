@@ -162,6 +162,7 @@
 
         // Sync cart (save to server)
         syncCartBtn.addEventListener('click', async () => {
+            console.log("id",listId.trim());
             try {
                 const response = await fetch('http://localhost:3000/api/list', {
                     method: 'POST',
@@ -170,8 +171,8 @@
                     },
                     body: JSON.stringify({
                         uniqueId: getMachineId(),
-                        listId: listId,
-                        listName: cartData.name,
+                        listId: listId.trim(),
+                        listName: cartData.name.trim(),
                         items: cartData.items
                     })
                 });
@@ -186,6 +187,7 @@
         async function loadCart() {
             // Get list ID from URL
             listId = getListIdFromURL();
+            listId = listId.replace(/'/g, '');
             
             if (!listId) {
                 alert('No list ID found in URL');
@@ -204,7 +206,7 @@
 
                 
                 // Update cart data
-                cartData.name = listData.name || `List ${listId}`;
+                cartData.name = listData.name || listId;
                 cartData.items = listData.items || [];
 
                 // Update list name display
@@ -216,7 +218,7 @@
                 renderCartItems();
             } catch (error) {
                 console.error('Failed to load list', error);
-                listNameElement.textContent = `List ${listId}`;
+                listNameElement.textContent = listId;
             }
         }
 
