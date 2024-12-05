@@ -157,8 +157,8 @@ app.delete('/api/lists/:id', async (req, res) => {
     try {
         const { id } = req.params;
         let lists = await getallshoppingLists();
-        
-        lists = lists.filter(list => list.name !== id);
+        console.log("lists",lists);
+        lists.delete(id);
         
         await writeLists(lists);
         
