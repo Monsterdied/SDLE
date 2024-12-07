@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "async-mutex": "^0.5.0",
+    "readwrite-lock": "^1.0.5",
     "zeromq": "^6.1.2"
   }
 }
