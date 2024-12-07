@@ -2,6 +2,7 @@ const zmq = require('zeromq');
 const { Coordinator } = require('./coordinator');
 const { StorageNode } = require('./storage_node');
 const { Client } = require('./client');
+const { ClientWeb } = require('./clientwithweb');
 const ConsistentHash = require('./consistent_hash');
 const assert = require('assert');
 
@@ -61,5 +62,8 @@ function testConsistentHash(){
     }
 }
 
+//const clientWeb = new ClientWeb('localhost', 5555, 5569);
+//clientWeb.initialize();
 
-main()
+//main()
+

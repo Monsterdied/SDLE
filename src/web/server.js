@@ -4,11 +4,11 @@ import { promises as fs } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import cors from 'cors';
+import open from 'open';
 import { Aworset } from './crdt/Aworset.js';
-import { type } from 'os';
 
 const app = express();
-const PORT = 3000;
+const PORT = process.argv[2] || 3000;
 
 // Middleware
 app.use(cors());
@@ -34,45 +34,34 @@ async function getallshoppingLists() {
             const aworset = Aworset.fromJson(JSON.stringify(list.crdt));
             return [list.name, aworset];
         }));
-        for (const [name, aworset] of Map_of_shopping_lists) {
-            console.log(name, aworset.getItems());
-        }
+        
+        console.log('Lists loaded:', Map_of_shopping_lists);
         return Map_of_shopping_lists;
     } catch (error) {
         if (error.code === 'ENOENT') {
-            
             console.log('File not found, creating new file');
             await fs.mkdir(path.dirname(LISTS_FILE), { recursive: true });
             await fs.writeFile(LISTS_FILE, JSON.stringify([]));
-            return [];
+            return new Map();
         }
-        console.error('Error reading lists:', error);
         throw error;
     }
 }
 
 // Utility function to write lists
 async function writeLists(lists) {
-    // save map of lists to file
-    let text = JSON.stringify(Array.from(lists.entries()).map(([name, aworset]) => ({
+    const serializableLists = Array.from(lists.entries()).map(([name, aworset]) => ({
         name: name,
         crdt: JSON.parse(aworset.toJson())
-    })));
-    for (const [name, aworset] of lists) {
-        console.log("type",typeof(aworset),name, aworset.getItems());
-        console.log("debug\n",name, aworset.toJson());
-    }
-
-
-    await fs.writeFile(LISTS_FILE, text);
+    }));
+    await fs.writeFile(LISTS_FILE, JSON.stringify(serializableLists, null, 2));
 }
 
 // GET all lists
 app.get('/api/lists', async (req, res) => {
     try {
-        const map = await getallshoppingLists();
-        console.log('Lists:', map);
-        res.json(Array.from(map.keys()));
+        const lists = await getallshoppingLists();
+        res.json(Array.from(lists.keys()));
     } catch (error) {
         res.status(500).json({ error: 'Failed to retrieve lists' });
     }
@@ -82,15 +71,18 @@ app.get('/api/lists', async (req, res) => {
 app.get('/api/list', async (req, res) => {
     try {
         let name = req.query.id;
-        name = name.replace(/^['"]+|['"]+$/g, ''); 
-        const map = await getallshoppingLists();
-        const list = map.get(name);
+        name = name.replace(/^['"]+|['"]+$/g, ''); // Remove leading and trailing quotes
+        const lists = await getallshoppingLists();
+        const list = lists.get(name);
+        console.log("name", name);
+        console.log("ll", list);
         
         if (!list) {
             console.log('List not found');
             return res.status(404).json({ error: 'List not found' });
         }
-        console.log("stringy",list.toFormattedJson());
+        
+        console.log("stringy", list.toFormattedJson());
         res.json(list.toFormattedJson());
     } catch (error) {
         console.error('Error retrieving list:', error);
@@ -101,20 +93,19 @@ app.get('/api/list', async (req, res) => {
 // POST create a new list
 app.post('/api/lists', async (req, res) => {
     try {
-        const  name  = req.body.name;
-        const uniqueId = req.body.uniqueId;
-        console.log("name",name);
-        console.log("uniqueId",uniqueId);
+        const { name, uniqueId } = req.body;
+        console.log("name", name);
+        console.log("uniqueId", uniqueId);
         
         let aworset = new Aworset(uniqueId, name);
-        console.log("aworset",aworset.getItems());
+        console.log("aworset", aworset.getItems());
 
         let map = await getallshoppingLists();
         
-        map.set(name,  aworset);
-        console.log("map",map.get('Bobs List'));
-        console.log("mapdeg",map.get(name));
-        console.log("map",map);
+        map.set(name, aworset);
+        console.log("map", map.get('Bobs List'));
+        console.log("mapdeg", map.get(name));
+        console.log("map", map);
         await writeLists(map);
         res.status(201).json(Array.from(map.keys()));
     } catch (error) {
@@ -129,25 +120,24 @@ app.post('/api/list', async (req, res) => {
         const { listId, items } = req.body;
 
         const lists = await getallshoppingLists();
-        console.log("listsdeg",lists);
+        console.log("listsdeg", lists);
         const listIndex = lists.get(listId);
-        console.log("listIndex",listId);
-        console.log("listIndex",listIndex);
-        console.log("body",req.body);
-        for (const item of items) {
-            console.log("name",item.name);
-            console.log("quantity",item.quantity);
-            console.log("testing", listIndex);
-            listIndex.addItem(item.name, item.quantity);
-        }
-
-        if (listIndex === undefined) {
+        console.log("listIndex", listId);
+        console.log("listIndex", listIndex);
+        console.log("body", req.body);
+        
+        if (!listIndex) {
             return res.status(404).json({ error: 'List not found' });
         }
         
+        // Update list
+        items.forEach(item => {
+            listIndex.addItem(item.name, item.quantity);
+        });
+        
         await writeLists(lists);
         
-        //res.json({ message: 'List updated successfully' });
+        res.json({ message: 'List updated successfully' });
     } catch (error) {
         console.error('Error updating list:', error);
         res.status(500).json({ error: 'Failed to update list' });
@@ -159,7 +149,7 @@ app.delete('/api/lists/:id', async (req, res) => {
     try {
         const { id } = req.params;
         let lists = await getallshoppingLists();
-        console.log("lists",lists);
+        
         lists.delete(id);
         
         await writeLists(lists);
@@ -173,7 +163,8 @@ app.delete('/api/lists/:id', async (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on http://localhost:8081`);
+    open(`http://localhost:8081/multiple_lists.html?port=${PORT}`);
 });
 
 // Graceful shutdown

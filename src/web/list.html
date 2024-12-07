@@ -77,11 +77,17 @@
         };
 
         let listId = null;
+        let port = null;
 
         // Function to get list ID from URL query parameter
         function getListIdFromURL() {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get('id');
+        }
+
+        function getport(){
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('port');
         }
 
         function getMachineId() {
@@ -90,6 +96,8 @@
                 machineId = crypto.randomUUID();
                 localStorage.setItem('MachineId', machineId);
             }
+            // append port to machineId
+            machineId = machineId + getport();
             return machineId;
         }
 
@@ -188,6 +196,8 @@
             // Get list ID from URL
             listId = getListIdFromURL();
             listId = listId.replace(/'/g, '');
+            port = getport();
+            console.log("port",port);
             
             if (!listId) {
                 alert('No list ID found in URL');

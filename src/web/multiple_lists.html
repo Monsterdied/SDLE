@@ -60,6 +60,7 @@
         const newListNameInput = document.getElementById('newListName');
         const createListBtn = document.getElementById('createListBtn');
         const existingListsContainer = document.getElementById('existingLists');
+        const port = getport();
         
         function getMachineId() {
             let machineId = localStorage.getItem('MachineId');
@@ -67,7 +68,14 @@
                 machineId = crypto.randomUUID();
                 localStorage.setItem('MachineId', machineId);
             }
+            // append port to machineId
+            machineId = machineId + getport();
             return machineId;
+        }
+
+        function getport(){
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('port');
         }
 
         // Create a new list
@@ -81,7 +89,7 @@
             }
 
             try {
-                const response = await fetch('http://localhost:3000/api/lists', {
+                const response = await fetch(`http://localhost:${port}/api/lists`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -103,8 +111,9 @@
         // Load existing lists
         async function loadExistingLists() {
             try {
-                const response = await fetch('http://localhost:3000/api/lists');
+                const response = await fetch(`http://localhost:${port}/api/lists`);
                 const lists = await response.json();
+                console.log(lists);
 
                 // Clear existing lists
                 existingListsContainer.innerHTML = '';
@@ -116,7 +125,7 @@
                     listElement.innerHTML = `
                         <span>${list}</span>
                         <div class="list-actions">
-                            <a href="list.html?id='${list}'" class="btn btn-sm btn-primary">Open</a>
+                            <a href="list.html?id='${list}'&port=${port}" class="btn btn-sm btn-primary">Open</a>
                             <button class="btn btn-sm btn-danger" onclick="deleteList('${list}')">Delete</button>
                         </div>
                     `;
@@ -140,7 +149,7 @@
             }
 
             try {
-                const response = await fetch(`http://localhost:3000/api/lists/${listId}`, {
+                const response = await fetch(`http://localhost:${port}/api/lists/${listId}`, {
                     method: 'DELETE'
                 });
 
