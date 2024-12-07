@@ -91,14 +91,9 @@
                 console.log(response);
 
                 const result = await response.json();
-                
-                if (result.name) {
-                    // Clear input
-                    newListNameInput.value = '';
+                // Clear input
+                newListNameInput.value = '';
                     
-                } else {
-                    alert('Failed to create list');
-                }
             } catch (error) {
                 console.error('Error creating list:', error);
                 alert('Failed to create list');

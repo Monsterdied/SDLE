@@ -20,7 +20,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const LISTS_FILE = path.join(__dirname, 'data', 'lists.json');
 
-let crdt_list = new Aworset('server', 'Shopping List');
 
 let Map_of_shopping_lists = new Map();
 
@@ -127,25 +126,28 @@ app.post('/api/lists', async (req, res) => {
 // POST update a list (add/update items)
 app.post('/api/list', async (req, res) => {
     try {
-        const { listName, items } = req.body;
+        const { listId, items } = req.body;
 
         const lists = await getallshoppingLists();
-        
-        const listIndex = lists.findIndex(l => l.name = listName);
-        
-        if (listIndex === -1) {
+        console.log("listsdeg",lists);
+        const listIndex = lists.get(listId);
+        console.log("listIndex",listId);
+        console.log("listIndex",listIndex);
+        console.log("body",req.body);
+        for (const item of items) {
+            console.log("name",item.name);
+            console.log("quantity",item.quantity);
+            console.log("testing", listIndex);
+            listIndex.addItem(item.name, item.quantity);
+        }
+
+        if (listIndex === undefined) {
             return res.status(404).json({ error: 'List not found' });
         }
         
-        // Update list
-        lists[listIndex] = {
-            name: listName || lists[listIndex].name,
-            items: items
-        };
-        
         await writeLists(lists);
         
-        res.json({ message: 'List updated successfully' });
+        //res.json({ message: 'List updated successfully' });
     } catch (error) {
         console.error('Error updating list:', error);
         res.status(500).json({ error: 'Failed to update list' });

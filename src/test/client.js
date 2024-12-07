@@ -9,7 +9,6 @@ class Client {
         this.localStore = new Map();
         this.client_id =client_id;
         this.client_request_id = 0;
-        //mutex for testing
         this.mutex = new mutex.Mutex();
     }
 
