@@ -74,7 +74,6 @@ function testConsistentHash(){
     }
 }
 
-<<<<<<< HEAD
 async function tomatinho(){
     let coordinatorPort = 5555;
     let publishPort = 5556;
@@ -105,10 +104,8 @@ async function tomatinho(){
 }
 main()
 //tomatinho()
-=======
 //const clientWeb = new ClientWeb('localhost', 5555, 5569);
 //clientWeb.initialize();
 
 //main()
 
->>>>>>> 1f26b61780f30ca3369c6b8c7857dc3f4cf5ec42
