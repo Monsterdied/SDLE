@@ -62,13 +62,9 @@ class StorageNode {
             switch (type.toString()) {
                 case 'GET':
                     await this.storageMutex.acquire();
-                    if (this.storage.has(packet[0].toString())) {
                         this.dealer.send(['GET_RESPONSE',token, this.storage.get(packet[0].toString())]);
                         //console.log('GET request received',this.storage.get(packet[0].toString()));
                         //console.log('GET request received',this.storage);
-                    }else{
-                        this.dealer.send(['GET_RESPONSE',token, 'NOT_FOUND']);
-                    }
                     this.storageMutex.release();
                     break;
                 case 'PUT':
@@ -100,26 +96,73 @@ class StorageNode {
         if (replicasAproved > 0) {
             //console.log(packet[2].toString());
             //send request to a replica
-
             if(entity !== false){
                 preferenceList.shift()
-        }
-                if(this.hasDuplicates(preferenceList)){
-                    throw new Error('Duplicate nodes in preference list',preferenceList);
-                }
-                const request = new zmq.Request();
-                request.connect(`tcp://localhost:${parseInt(preferenceList[1]) + 1}`);
-                await request.send(['PUT', token,key, crdt, JSON.stringify(preferenceList), replicasAproved]);
-                this.listenToRequestResponse(request);
+            }
+            if(this.hasDuplicates(preferenceList)){
+                throw new Error('Duplicate nodes in preference list',preferenceList);
+            }
+            await this.createRequestToReplica(token,key,crdt,preferenceList,replicasAproved);
         }else{
             console.log('Starting backtracking',this.nodePort,key);
             this.backTrackWriteReplica(token,key);
         }   
     }
+    async createRequestToReplica(token,key,crdt,preferenceList,replicasAproved){
+        let tries = 0;
+        const resendTries = 0;
+        let BoolResponse
+        while(preferenceList.length > 1){
+            console.log('Sending request to replica',preferenceList[1],this.nodePort,token,key,crdt,preferenceList,replicasAproved);
+            const request = new zmq.Request();
+            request.receiveTimeout = 300*replicasAproved;//if there are more replicas to be aproved, wait longer
+            request.connect(`tcp://localhost:${parseInt(preferenceList[1]) + 1}`);
+            await request.send(['PUT', token,key, crdt, JSON.stringify(preferenceList), replicasAproved]);
+            console.log('Sent request to replica',preferenceList[1]);
+            BoolResponse =this.listenToRequestResponse(request);
+            if(BoolResponse===true){
+                break;
+            }else if(tries>=resendTries){
+                console.log('not working');
+                //request.disconnect(`tcp://localhost:${parseInt(preferenceList[1]) + 1}`);
+                preferenceList.shift();
+                tries = 0;
+            }else{
+                tries++;
+            }
+        }
+        if(BoolResponse===false){
+            console.log('Failed Write');
+            //TODO backtrack not commit write
+        }
+
+    }
+
+    async listenToRequestResponse(request) {
+        //console.log(`Waiting for packets Dealer... ${this.nodePort}`);
+        console.log('Waiting for packets Request packet');
+        try{
+            const [type,token,...packet] = await request.receive();
+        console.log(`NODE Received packet Request: ${packet}, ${this.nodePort}, $`);
+        switch (type.toString()) {
+            case 'PUT_RESPONSE':
+                //console.log(`Received Dealer response ${this.nodePort}`);
+                this.backTrackWriteReplica(token,packet[1].toString());
+                break;
+            }
+            return true;
+        }catch(err){
+            return false;
+        }
+    }
     async backTrackWriteReplica(token,key){
         //console.log('Backtracking to coordinator',this.nodePort);
         //console.log('Token:',this.tokenToCallback);
         await this.callBackMutex.acquire();
+        if(this.tokenToCallback.get(token.toString()) === undefined){
+            console.log('Token Already Respondend',token);
+            return;
+        }
         const entity = this.tokenToCallback.get(token.toString())[0];
         this.callBackMutex.release();
         if(entity !== false ){
@@ -140,6 +183,9 @@ class StorageNode {
     async listenToReplicasRouter() {
         while (true) {
             const [entity,filler,type,token,...packet] = await this.routerSocket.receive();
+            if(Math.random() >0.95){
+                return;
+            }
             console.log(`NODE Received packet Router: ${type}`);
             switch (type.toString()) {
                 case 'PUT':
@@ -147,18 +193,6 @@ class StorageNode {
                     this.propagateWrite(entity,token,packet);
                     break;
             }
-        }
-    }
-    async listenToRequestResponse(request) {
-        //console.log(`Waiting for packets Dealer... ${this.nodePort}`);
-        console.log('Waiting for packets Request packet');
-        const [type,token,...packet] = await request.receive();
-        console.log(`NODE Received packet Request: ${packet}, ${this.nodePort}, $`);
-        switch (type.toString()) {
-            case 'PUT_RESPONSE':
-                //console.log(`Received Dealer response ${this.nodePort}`);
-                this.backTrackWriteReplica(token,packet[1].toString());
-                break;
         }
     }
 

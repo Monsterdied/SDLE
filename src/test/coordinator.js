@@ -86,7 +86,7 @@ class Coordinator {
                     console.log('CORDINATOR PUT_REPONSE:', value3.toString());
                     await this.router.send([identity_Return3, value3]);
                 }else{
-                    console.log('CORDINATOR GET_REPONSE TIMEOUT:', token2.toString());
+                    console.log('CORDINATOR GET_REPONSE TIMEOUT:', token3.toString(), ...value3.toString());
                 }
                 break;
         }
