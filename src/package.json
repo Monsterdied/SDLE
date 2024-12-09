@@ -1,7 +1,13 @@
 {
   "dependencies": {
     "async-mutex": "^0.5.0",
+<<<<<<< HEAD
     "readwrite-lock": "^1.0.5",
+=======
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "open": "^10.1.0",
+>>>>>>> 1f26b61780f30ca3369c6b8c7857dc3f4cf5ec42
     "zeromq": "^6.1.2"
   }
 }

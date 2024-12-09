@@ -1,5 +1,6 @@
 const zmq = require('zeromq');
 const mutex = require('async-mutex');
+const { spawn } = require('child_process');
 class Client {
     constructor(coordinatorAddress, coordinatorPort,client_id) {
         this.dealer = new zmq.Dealer();
@@ -14,6 +15,17 @@ class Client {
 
     async initialize() {
         await this.dealer.connect(`tcp://${this.coordinatorAddress}:${this.coordinatorPort}`);
+    }
+
+    runServer() {
+        const serverProcess = spawn('node', ['server.js'], {
+            stdio: 'inherit', // Inherit stdio to see server output in the console
+            cwd: __dirname // Set the current working directory to the directory of client.js
+        });
+
+        serverProcess.on('close', (code) => {
+            console.log(`server.js process exited with code ${code}`);
+        });
     }
 
     get_token(){

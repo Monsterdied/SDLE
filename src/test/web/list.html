@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Shopping List</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #itemInput, #quantityInput, #addItem, #syncCart {
+            margin: 10px 0;
+            padding: 5px;
+        }
+        #cartItems {
+            list-style-type: none;
+            padding: 0;
+        }
+        #cartItems li {
+            background-color: #f4f4f4;
+            margin: 5px 0;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .item-details {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        #listName {
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            text-align: center;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div id="listName">Loading List...</div>
+    
+    <div>
+        <input type="text" id="itemInput" placeholder="Enter item name">
+        <input type="number" id="quantityInput" min="1" value="1" placeholder="Quantity">
+        <button id="addItem">Add Item</button>
+    </div>
+    
+    <ul id="cartItems"></ul>
+    
+    <button id="syncCart">Sync List</button>
+
+    <script type="module">
+        import { Aworset } from './crdt/Aworset.js';
+
+        let list_crdt = new Aworset();
+
+        // DOM Elements
+        const listNameElement = document.getElementById('listName');
+        const itemInput = document.getElementById('itemInput');
+        const quantityInput = document.getElementById('quantityInput');
+        const addItemBtn = document.getElementById('addItem');
+        const cartItemsList = document.getElementById('cartItems');
+        const syncCartBtn = document.getElementById('syncCart');
+
+        // Cart object with name and items
+        let cartData = {
+            name: 'Unnamed List',
+            items: []
+        };
+
+        let listId = null;
+        let port = null;
+
+        // Function to get list ID from URL query parameter
+        function getListIdFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('id');
+        }
+
+        function getport(){
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('port');
+        }
+
+        function getMachineId() {
+            let machineId = localStorage.getItem('MachineId');
+            if (!machineId) {
+                machineId = crypto.randomUUID();
+                localStorage.setItem('MachineId', machineId);
+            }
+            // append port to machineId
+            machineId = machineId + getport();
+            return machineId;
+        }
+
+        // Add item to cart
+        addItemBtn.addEventListener('click', () => {
+            const itemName = itemInput.value.trim();
+            const quantity = parseInt(quantityInput.value) || 1;
+            
+            if (itemName) {
+                // Check if item already exists
+                const existingItemIndex = cartData.items.findIndex(item => item.name === itemName);
+                
+                if (existingItemIndex !== -1) {
+                    // Update quantity if item exists
+                    cartData.items[existingItemIndex].quantity += quantity;
+                } else {
+                    // Add new item
+                    cartData.items.push({
+                        name: itemName,
+                        quantity: quantity
+                    });
+                }
+                
+                renderCartItems();
+                itemInput.value = '';
+                quantityInput.value = '1';
+            }
+        });
+
+        // Render cart items
+        function renderCartItems() {
+            cartItemsList.innerHTML = cartData.items.map(item => `
+                <li>
+                    <div class="item-details">
+                        ${item.name}
+                        <div class="quantity-controls">
+                            <button onclick="changeQuantity('${item.name}', -1)">-</button>
+                            <span>${item.quantity}</span>
+                            <button onclick="changeQuantity('${item.name}', 1)">+</button>
+                        </div>
+                    </div>
+                    <button onclick="removeItem('${item.name}')">Remove</button>
+                </li>
+            `).join('');
+        }
+
+        // Change item quantity
+        window.changeQuantity = function(name, change) {
+            const itemIndex = cartData.items.findIndex(item => item.name === name);
+            if (itemIndex !== -1) {
+                // Ensure quantity doesn't go below 1
+                cartData.items[itemIndex].quantity = Math.max(1, cartData.items[itemIndex].quantity + change);
+                
+                if (change < 0) {
+                    list_crdt.removeItem(name, change);
+                } else {
+                    list_crdt.addItem(name, change);
+                }
+                
+                renderCartItems();
+            }
+        }
+
+        // Remove item from cart
+        window.removeItem = function(name) {
+            cartData.items = cartData.items.filter(item => item.name !== name);
+            list_crdt.removeItem(name);
+            renderCartItems();
+        }
+
+        // Sync cart (save to server)
+        syncCartBtn.addEventListener('click', async () => {
+            console.log("id",listId.trim());
+            try {
+                const response = await fetch('http://localhost:3000/api/list', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        uniqueId: getMachineId(),
+                        listId: listId.trim(),
+                        listName: cartData.name.trim(),
+                        items: cartData.items
+                    })
+                });
+                const result = await response.json();
+                alert(result.message);
+            } catch (error) {
+                alert('Sync failed');
+            }
+        });
+
+        // Load cart items on page load
+        async function loadCart() {
+            // Get list ID from URL
+            listId = getListIdFromURL();
+            listId = listId.replace(/'/g, '');
+            port = getport();
+            console.log("port",port);
+            
+            if (!listId) {
+                alert('No list ID found in URL');
+                return;
+            }
+
+            try {
+                // Fetch list details
+                const listResponse = await fetch(`http://localhost:3000/api/list?id=${listId}`);
+                const listData = await listResponse.json();
+                console.log("MERSA",listData);
+
+                for(let key in listData){
+                    console.log("key",key);
+                }
+
+                
+                // Update cart data
+                cartData.name = listData.name || listId;
+                cartData.items = listData.items || [];
+
+                // Update list name display
+                listNameElement.textContent = cartData.name;
+
+
+                console.log("items",listData.items);
+                console.log("name",listData.listname);
+                renderCartItems();
+            } catch (error) {
+                console.error('Failed to load list', error);
+                listNameElement.textContent = listId;
+            }
+        }
+
+        // Allow adding items with Enter key
+        itemInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addItemBtn.click();
+            }
+        });
+
+        // Load cart when page loads
+        loadCart();
+    </script>
+</body>
+</html>

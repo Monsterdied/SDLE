@@ -1,0 +1,17 @@
+{
+  "name": "your-project-name",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "mocha"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chai": "^4.3.4",
+    "mocha": "^9.1.3"
+  }
+}
