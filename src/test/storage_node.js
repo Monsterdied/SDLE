@@ -71,8 +71,8 @@ class StorageNode {
                     }
                     this.storageMutex.release();
                     break;
-                case 'SET':
-                    console.log('SET request received');
+                case 'PUT':
+                    console.log('PUT request received');
                     const entity = false; // because we are calling back to the cordinator
                     await this.propagateWrite(entity,token, packet); 
                     break;
@@ -109,7 +109,7 @@ class StorageNode {
                 }
                 const request = new zmq.Request();
                 request.connect(`tcp://localhost:${parseInt(preferenceList[1]) + 1}`);
-                await request.send(['SET', token,key, crdt, JSON.stringify(preferenceList), replicasAproved]);
+                await request.send(['PUT', token,key, crdt, JSON.stringify(preferenceList), replicasAproved]);
                 this.listenToRequestResponse(request);
         }else{
             console.log('Starting backtracking',this.nodePort,key);
@@ -127,13 +127,13 @@ class StorageNode {
             await this.routerMutex.acquire();
                 console.log('Backtracking to storage',key,this.nodePort,this.tokenToCallback.get(token.toString())[1]);
             const delimeter = "";
-                await this.routerSocket.send([entity,delimeter,'SET_RESPONSE',token, 'OK',key.toString()]);
+                await this.routerSocket.send([entity,delimeter,'PUT_RESPONSE',token, 'OK',key.toString()]);
             this.routerMutex.release();
             //release();
         }else{
             //console.log('Backtracking to coordinator');
             await this.dealerMutex.acquire();
-            await this.dealer.send(['SET_RESPONSE',token, 'OK']);
+            await this.dealer.send(['PUT_RESPONSE',token, 'OK']);
             this.dealerMutex.release();
         }
     }
@@ -142,7 +142,7 @@ class StorageNode {
             const [entity,filler,type,token,...packet] = await this.routerSocket.receive();
             console.log(`NODE Received packet Router: ${type}`);
             switch (type.toString()) {
-                case 'SET':
+                case 'PUT':
                     console.log(`Received Set request in router ${this.nodePort}`);
                     this.propagateWrite(entity,token,packet);
                     break;
@@ -155,7 +155,7 @@ class StorageNode {
         const [type,token,...packet] = await request.receive();
         console.log(`NODE Received packet Request: ${packet}, ${this.nodePort}, $`);
         switch (type.toString()) {
-            case 'SET_RESPONSE':
+            case 'PUT_RESPONSE':
                 //console.log(`Received Dealer response ${this.nodePort}`);
                 this.backTrackWriteReplica(token,packet[1].toString());
                 break;

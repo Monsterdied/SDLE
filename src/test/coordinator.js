@@ -52,16 +52,16 @@ class Coordinator {
                 await this.router.send( [identity1,'GET',token, key]);
                 this.tokens_to_request.set(token.toString(), [Date.now(),identity,portsIds,'GET',key]);
                 break;
-            case 'SET_CLIENT':
+            case 'PUT_CLIENT':
                 const [token1,key1,crdt] = rest;
                 console.log('CORDINATOR Request:', key1.toString(), token1.toString());
                 const portsIds1 = await this.consistentHash.getNode(key1.toString());
                 console.log('CORDINATOR Node chossed:', portsIds1.toString());
                 const identity2 = this.node_id_to_identifiers.get(portsIds1[0]);
                 const replicas_Needed_To_Akc = this.nreplicas;
-                await this.router.send( [identity2,'SET', token1,key1,crdt,JSON.stringify(portsIds1),replicas_Needed_To_Akc]);
+                await this.router.send( [identity2,'PUT', token1,key1,crdt,JSON.stringify(portsIds1),replicas_Needed_To_Akc]);
                 console.log('CORDINATOR Request:', identity2);
-                this.tokens_to_request.set(token1.toString(), [Date.now(),identity,'SET',key1,crdt,portsIds1,replicas_Needed_To_Akc]);
+                this.tokens_to_request.set(token1.toString(), [Date.now(),identity,'PUT',key1,crdt,portsIds1,replicas_Needed_To_Akc]);
                 //console.log('CORDINATOR Response:', response1.toString());
                 break;
             //reply from node
@@ -77,13 +77,13 @@ class Coordinator {
                     console.log('CORDINATOR GET_REPONSE TIMEOUT:', token2.toString());
                 }
                 break;
-            case 'SET_RESPONSE':
+            case 'PUT_RESPONSE':
                 const [token3, ...value3] = rest;
-                console.log('CORDINATOR SET_REPONSE:', token3.toString(),value3.toString());
+                console.log('CORDINATOR PUT_REPONSE:', token3.toString(),value3.toString());
                 if(this.tokens_to_request.get(token3.toString())){
                     const [time,identity_Return3,...rest] = this.tokens_to_request.get(token3.toString());
                     this.tokens_to_request.delete(token3.toString());
-                    console.log('CORDINATOR SET_REPONSE:', value3.toString());
+                    console.log('CORDINATOR PUT_REPONSE:', value3.toString());
                     await this.router.send([identity_Return3, value3]);
                 }else{
                     console.log('CORDINATOR GET_REPONSE TIMEOUT:', token2.toString());

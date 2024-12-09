@@ -36,7 +36,7 @@ class Client {
     }
     async set(key, value) {
         const token = this.get_token();
-        await this.dealer.send(['SET_CLIENT', token,key, value]);
+        await this.dealer.send(['PUT_CLIENT', token,key, value]);
         //console.log('CLIENT SET key:', key);
         const [status] = await this.dealer.receive();
         //console.log('CLIENT SET status:', status.toString());
