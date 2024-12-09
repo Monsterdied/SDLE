@@ -22,6 +22,7 @@ class StorageNode {
         this.storageMutex = new Mutex();
         this.callBackMutex = new Mutex();
         this.test = 0;
+        this.noise = 0.85;
     }
 
     async initialize() {
@@ -111,12 +112,12 @@ class StorageNode {
     async createRequestToReplica(token,key,crdt,preferenceList,replicasAproved){
         let tries = 0;
         const resendTries = 0;
-        let BoolResponse
+        let BoolResponse = false;
         while(preferenceList.length > 1){
             console.log('Sending request to replica',preferenceList[1],this.nodePort,token,key,crdt,preferenceList,replicasAproved);
             const request = new zmq.Request();
             request.receiveTimeout = 300*replicasAproved;//if there are more replicas to be aproved, wait longer
-            request.connect(`tcp://localhost:${parseInt(preferenceList[1]) + 1}`);
+            request.connect(`tcp://localhost:${parseInt(preferenceList[1].split(':')[0]) + 1}`);
             await request.send(['PUT', token,key, crdt, JSON.stringify(preferenceList), replicasAproved]);
             console.log('Sent request to replica',preferenceList[1]);
             BoolResponse =this.listenToRequestResponse(request);
@@ -131,10 +132,11 @@ class StorageNode {
                 tries++;
             }
         }
-        if(BoolResponse===false){
-            console.log('Failed Write');
+        if(BoolResponse===false && replicasAproved !== 0){
+            console.log(`Failed Write ${key}`,this.nodePort);
             //TODO backtrack not commit write
         }
+        
 
     }
 
@@ -183,7 +185,7 @@ class StorageNode {
     async listenToReplicasRouter() {
         while (true) {
             const [entity,filler,type,token,...packet] = await this.routerSocket.receive();
-            if(Math.random() >0.95){
+            if(Math.random() >this.noise){
                 return;
             }
             console.log(`NODE Received packet Router: ${type}`);

@@ -16,6 +16,8 @@ class Coordinator {
         this.node_id_to_identifiers = new Map();
         this.tokens_to_request = new Map();
         this.register_lock = new mutex.Mutex();
+        this.getTimeout = 1000;
+        this.putTimeout = 1300;
     }
 
     async initialize() {
@@ -47,7 +49,7 @@ class Coordinator {
                 const [token,key] = rest;
                 console.log('CORDINATOR Request:', key.toString(), token.toString());
                 const portsIds = await this.consistentHash.getNode(key.toString());
-                const identity1 = this.node_id_to_identifiers.get(portsIds[0]);
+                const identity1 = this.node_id_to_identifiers.get(portsIds[0].split(':')[0]);
                 console.log('CORDINATOR Response:', identity1.toString());
                 await this.router.send( [identity1,'GET',token, key]);
                 this.tokens_to_request.set(token.toString(), [Date.now(),identity,portsIds,'GET',key]);
@@ -57,11 +59,12 @@ class Coordinator {
                 console.log('CORDINATOR Request:', key1.toString(), token1.toString());
                 const portsIds1 = await this.consistentHash.getNode(key1.toString());
                 console.log('CORDINATOR Node chossed:', portsIds1.toString());
-                const identity2 = this.node_id_to_identifiers.get(portsIds1[0]);
+                const identity2 = this.node_id_to_identifiers.get(portsIds1[0].split(':')[0]);
                 const replicas_Needed_To_Akc = this.nreplicas;
                 await this.router.send( [identity2,'PUT', token1,key1,crdt,JSON.stringify(portsIds1),replicas_Needed_To_Akc]);
                 console.log('CORDINATOR Request:', identity2);
-                this.tokens_to_request.set(token1.toString(), [Date.now(),identity,'PUT',key1,crdt,portsIds1,replicas_Needed_To_Akc]);
+                console.log('CORDINATOR Date:', Date.now());
+                this.tokens_to_request.set(token1.toString(), [Date.now(),identity,portsIds1,'PUT',key1,crdt,replicas_Needed_To_Akc]);
                 //console.log('CORDINATOR Response:', response1.toString());
                 break;
             //reply from node
@@ -126,11 +129,20 @@ class Coordinator {
         setInterval(() => {
             const now = Date.now();
             for (const [identity, [lastBeat,type,...rest]] of this.tokens_to_request) {
-                if (now - lastBeat > 10000) { // 10 seconds timeout
-                    //handle timeout request
+                switch (type) {
+                    case 'GET':
+                        if (now - lastBeat > this.getTimeout) { // 10 seconds timeout
+                            //handle timeout request
+                        }
+                    break;
+                    case 'PUT':
+                        if (now - lastBeat > this.putTimeout) { // 10 seconds timeout
+                            //handle timeout request
+                        }
+                    break;
                 }
             }
-        }, 5000); // Check every 5 seconds
+        }, 1000); // Check every 5 seconds
     }
 }
 module.exports = { Coordinator };

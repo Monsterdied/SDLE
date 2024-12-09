@@ -13,7 +13,7 @@ async function main() {
     let publishPort = 5556;
 
     let initialStorageNodePort = 5557;
-    let numberOfNodes = 12;
+    let numberOfNodes = 19;
 
     // Start Coordinator
     const coordinator = new Coordinator(coordinatorPort, publishPort);
