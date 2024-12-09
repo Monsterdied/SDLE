@@ -1,6 +1,5 @@
 const crypto = require('crypto');
 const { Mutex } = require('async-mutex');
-const ReadwriteLock = require('readwrite-lock');
 //TODO
 class ConsistentHash {
     constructor(nreplicas,replicas = 100) {
