@@ -14,7 +14,6 @@ class StorageNode {
         this.publishPort = publishPort;
         this.dealerSocket = new zmq.Dealer();
         this.routerSocket= new zmq.Router();
-        this.reply=new zmq.Reply();
         this.nodesMap = new Map();
         this.tokenToCallback = new Map();
         this.routerMutex = new Mutex();
@@ -28,8 +27,8 @@ class StorageNode {
     async initialize() {
         // Connect to coordinator
         //await this.dealer.bind(`tcp://localhost:${this.nodePort}`);
-        //await this.routerSocket.bind(`tcp://localhost:${this.nodePort + 1}`);
-        await this.reply.bind(`tcp://localhost:${this.nodePort + 1}`);
+        await this.routerSocket.bind(`tcp://localhost:${this.nodePort + 1}`);
+        //await this.dealerSocket.bind(`tcp://localhost:${this.nodePort + 2}`);
         await this.dealer.connect(`tcp://localhost:${this.coordinatorPort}`);
         await this.subscriber.connect(`tcp://localhost:${this.publishPort}`);
         
@@ -109,12 +108,10 @@ class StorageNode {
                 if(this.hasDuplicates(preferenceList)){
                     throw new Error('Duplicate nodes in preference list',preferenceList);
                 }
-                await this.routerMutex.acquire();
-                const socket = new zmq.Request();
-                socket.connect(`tcp://localhost:${parseInt(preferenceList[0]) + 1}`);
-                await socket.send(['SET', token,key, crdt, JSON.stringify(preferenceList), replicasAproved]);
-
-                this.routerMutex.release();
+                await this.dealerMutex.acquire();
+                this.dealerSocket.connect(`tcp://localhost:${parseInt(preferenceList[1]) + 1}`);
+                await this.dealerSocket.send(['SET', token,key, crdt, JSON.stringify(preferenceList), replicasAproved]);
+                this.dealerMutex.release();
         }else{
             console.log('Starting backtracking',this.nodePort,key);
             this.backTrackWriteReplica(token,key);
@@ -142,7 +139,7 @@ class StorageNode {
     }
     async listenToReplicasRouter() {
         while (true) {
-            const [entity,type,token,...packet] = await this.reply.receive();
+            const [entity,type,token,...packet] = await this.routerSocket.receive();
             //console.log(`NODE Received packet Router: ${packet}`);
             switch (type.toString()) {
                 case 'SET':
@@ -152,11 +149,11 @@ class StorageNode {
             }
         }
     }
-    async handleRequest() {
+    async listenToDealerResponse() {
         while (true) {
             //console.log(`Waiting for packets Dealer... ${this.nodePort}`);
-            const [type,token,...packet] = await this.reply.receive();
-            console.log(`NODE Received packet Request: ${[type,token,...packet]}, ${this.nodePort}, $`);
+            const [type,token,...packet] = await this.dealerSocket.receive();
+            //console.log(`NODE Received packet Dealer: ${packet}, ${this.nodePort}, $`);
             switch (type.toString()) {
                 case 'SET_RESPONSE':
                     //console.log(`Received Dealer response ${this.nodePort}`);
