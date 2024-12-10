@@ -23,13 +23,14 @@ class StorageNode {
         this.storageMutex = new Mutex();
         this.callBackMutex = new Mutex();
         this.test = 0;
-        this.noise = 1;
+        this.noise = 0.99;
         this.consistentHash;
     }
 
     async initialize() {
         // Connect to coordinator
         //await this.dealer.bind(`tcp://localhost:${this.nodePort}`);
+        this.routerSocket.receiveHighWaterMark = 0;
         await this.routerSocket.bind(`tcp://localhost:${this.nodePort + 1}`);
         //await this.dealerSocket.bind(`tcp://localhost:${this.nodePort + 2}`);
         await this.dealer.connect(`tcp://localhost:${this.coordinatorPort}`);
@@ -97,6 +98,14 @@ class StorageNode {
         this.storageMutex.release();
         replicasAproved--;
         if (replicasAproved > 0) {
+            //console.log(packet[2].toString());
+            //send request to a replica
+            if(entity !== false){
+                preferenceList.shift()
+            }
+            if(this.hasDuplicates(preferenceList)){
+                throw new Error('Duplicate nodes in preference list',preferenceList);
+            }
             await this.createRequestToReplica(token,key,crdt,preferenceList,replicasAproved);
         }else{
             console.log('Starting backtracking',this.nodePort,key);
@@ -109,19 +118,22 @@ class StorageNode {
         let BoolResponse = false;
         while(preferenceList.length > 1){
             console.log('Sending request to replica',preferenceList[1],this.nodePort,token,key,crdt,preferenceList,replicasAproved);
-            const request = new zmq.Request();
+
+            let request = new zmq.Request();
             request.receiveTimeout = 300*replicasAproved;//if there are more replicas to be aproved, wait longer
-            request.connect(`tcp://localhost:${parseInt(preferenceList[1].split(':')[0]) + 1}`);
+            const address = `tcp://localhost:${parseInt(preferenceList[1].split(':')[0]) + 1}`;
+            request.receiveTimeout = 300*replicasAproved;
+            request.connect(address);
             await request.send(['PUT', token,key, crdt, JSON.stringify(preferenceList), replicasAproved]);
-            console.log(`tcp://localhost:${parseInt(preferenceList[1].split(':')[0]) + 1}`);
             console.log('Sent request to replica',preferenceList[1]);
-            BoolResponse =await this.listenToRequestResponse(request);
+            BoolResponse =await this.listenToRequestResponse(request,address);
             if(BoolResponse===true){
                 break;
             }else if(tries>=resendTries){
                 console.log(`not working ${key}`,replicasAproved);
-                //request.disconnect(`tcp://localhost:${parseInt(preferenceList[1]) + 1}`);
+                //request.disconnect(address);
                 preferenceList.shift();
+                //request.close();
                 tries = 0;
             }else{
                 tries++;
@@ -137,7 +149,7 @@ class StorageNode {
 
     }
 
-    async listenToRequestResponse(request) {
+    async listenToRequestResponse(request,address) {
         //console.log(`Waiting for packets Dealer... ${this.nodePort}`);
         console.log('Waiting for packets Request packet');
         try{
@@ -147,13 +159,14 @@ class StorageNode {
             case 'PUT_RESPONSE':
                 //console.log(`Received Dealer response ${this.nodePort}`);
                 console.log('Received Dealer response',packet[0].toString());
-                this.backTrackWriteReplica(token,packet[1].toString(),packet[0].toString());//prob await here
+                await this.backTrackWriteReplica(token,packet[1].toString(),packet[0].toString());//prob await here
                 break;
             }
             console.log('Received Dealer response',packet[0].toString());
             return true;
         }catch(err){
             console.log('Failed to receive response:', err);
+            request.disconnect(address);
             return false;
         }
     }
@@ -194,6 +207,10 @@ class StorageNode {
                 case 'PUT':
                     console.log(`Received Set request in router ${this.nodePort}`);
                     this.propagateWrite(entity,token,packet);
+                    break;
+                case 'DISCARD':
+                    console.log(`Received Discard request in router ${this.nodePort}, ${packet}`);
+                    //TODO backtrack
                     break;
             }
         }

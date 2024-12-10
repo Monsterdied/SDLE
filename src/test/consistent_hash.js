@@ -41,7 +41,7 @@ class ConsistentHash {
         //sortedHashes.forEach((h) => console.log(h));
         // Find the first hash >= our key's hash
         for (const h of this.sortedHashes) {
-            if (h >= hash) {
+            if (h > hash && this.ring.get(h).split(':')[0] !== key.split(':')[0]){
                 const node = this.ring.get(h);
                 this.lock.release();
                 return node;
@@ -67,8 +67,8 @@ class ConsistentHash {
             if (h >= hash){
                 const node = this.ring.get(h);
                 if(!nodeParents.includes(node.split(':')[0])){
-                    console.log("TEST",node.split(':')[0]);
-                    console.log("Test",nodeParents);
+                    //console.log("TEST",node.split(':')[0]);
+                    //console.log("Test",nodeParents);
                     nodeParents.push(node.split(':')[0]);
                     result.push(node);
                 } 
