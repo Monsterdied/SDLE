@@ -97,14 +97,6 @@ class StorageNode {
         this.storageMutex.release();
         replicasAproved--;
         if (replicasAproved > 0) {
-            //console.log(packet[2].toString());
-            //send request to a replica
-            if(entity !== false){
-                preferenceList.shift()
-            }
-            if(this.hasDuplicates(preferenceList)){
-                throw new Error('Duplicate nodes in preference list',preferenceList);
-            }
             await this.createRequestToReplica(token,key,crdt,preferenceList,replicasAproved);
         }else{
             console.log('Starting backtracking',this.nodePort,key);
@@ -121,13 +113,13 @@ class StorageNode {
             request.receiveTimeout = 300*replicasAproved;//if there are more replicas to be aproved, wait longer
             request.connect(`tcp://localhost:${parseInt(preferenceList[1].split(':')[0]) + 1}`);
             await request.send(['PUT', token,key, crdt, JSON.stringify(preferenceList), replicasAproved]);
+            console.log(`tcp://localhost:${parseInt(preferenceList[1].split(':')[0]) + 1}`);
             console.log('Sent request to replica',preferenceList[1]);
             BoolResponse =await this.listenToRequestResponse(request);
             if(BoolResponse===true){
                 break;
             }else if(tries>=resendTries){
-                console.log('not working');
-                console.log(`Failed Write`,replicasAproved);
+                console.log(`not working ${key}`,replicasAproved);
                 //request.disconnect(`tcp://localhost:${parseInt(preferenceList[1]) + 1}`);
                 preferenceList.shift();
                 tries = 0;
@@ -155,11 +147,13 @@ class StorageNode {
             case 'PUT_RESPONSE':
                 //console.log(`Received Dealer response ${this.nodePort}`);
                 console.log('Received Dealer response',packet[0].toString());
-                this.backTrackWriteReplica(token,packet[1].toString(),packet[0].toString());
+                this.backTrackWriteReplica(token,packet[1].toString(),packet[0].toString());//prob await here
                 break;
             }
+            console.log('Received Dealer response',packet[0].toString());
             return true;
         }catch(err){
+            console.log('Failed to receive response:', err);
             return false;
         }
     }
@@ -192,6 +186,7 @@ class StorageNode {
         while (true) {
             const [entity,filler,type,token,...packet] = await this.routerSocket.receive();
             if(Math.random() >this.noise){
+                console.log('Dropped packet');
                 return;
             }
             console.log(`NODE Received packet Router: ${type}`);

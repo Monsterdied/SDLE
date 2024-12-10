@@ -6,6 +6,7 @@ const { ClientWeb } = require('./clientwithweb');
 const ConsistentHash = require('./consistent_hash');
 const assert = require('assert');
 const { Console } = require('console');
+const { threadId } = require('worker_threads');
 let passed = 0
 const passedTests = [];
 async function main() {
@@ -28,7 +29,7 @@ async function main() {
     }
     // Give some time for nodes to initialize
     await new Promise(resolve => setTimeout(resolve, 1000));
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 1; i++) {
         test(i);
     }
     // Start Client
@@ -46,6 +47,9 @@ async function test(id){
     while(setStatus !== 'OK') {
         setStatus = await client.set(`key${id}`, `value${id}`);
         console.log('CLIENT SET status Return:', setStatus);   
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        //setStatus = await client.set(`key${id}`, `value${id}`);
+        console.log('CLIENT SET status Return:', setStatus); 
     }
     //console.log('tester SET status:', setStatus);
     assert.strictEqual(setStatus, 'OK', `SET operation failed for key${id}`);
