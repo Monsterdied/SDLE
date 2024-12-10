@@ -1,6 +1,7 @@
 const zmq = require('zeromq');
 
 const { Mutex } = require('async-mutex');
+const ConsistentHash = require('./consistent_hash');
 
 // ============ Storage Node ============
 class StorageNode {
@@ -23,6 +24,7 @@ class StorageNode {
         this.callBackMutex = new Mutex();
         this.test = 0;
         this.noise = 1;
+        this.consistentHash;
     }
 
     async initialize() {
@@ -48,9 +50,9 @@ class StorageNode {
     async handleTopologyUpdates() {
         // Handle topology updates
         while (true) {
-            const [topic, message] = await this.subscriber.receive();
+            const [topic, nreplicas,message] = await this.subscriber.receive();
             if (topic.toString() === 'TOPOLOGY_UPDATE') {
-                this.handleTopologyUpdate(JSON.parse(message.toString()));
+                this.handleTopologyUpdate(nreplicas,JSON.parse(message.toString()));
             }
         }
     }
@@ -71,7 +73,7 @@ class StorageNode {
                 case 'PUT':
                     console.log('PUT request received');
                     const entity = false; // because we are calling back to the cordinator
-                    await this.propagateWrite(entity,token, packet); 
+                    this.propagateWrite(entity,token, packet); 
                     break;
             }
         }
@@ -120,11 +122,12 @@ class StorageNode {
             request.connect(`tcp://localhost:${parseInt(preferenceList[1].split(':')[0]) + 1}`);
             await request.send(['PUT', token,key, crdt, JSON.stringify(preferenceList), replicasAproved]);
             console.log('Sent request to replica',preferenceList[1]);
-            BoolResponse =this.listenToRequestResponse(request);
+            BoolResponse =await this.listenToRequestResponse(request);
             if(BoolResponse===true){
                 break;
             }else if(tries>=resendTries){
                 console.log('not working');
+                console.log(`Failed Write`,replicasAproved);
                 //request.disconnect(`tcp://localhost:${parseInt(preferenceList[1]) + 1}`);
                 preferenceList.shift();
                 tries = 0;
@@ -132,6 +135,7 @@ class StorageNode {
                 tries++;
             }
         }
+        console.log('BoolResponse',BoolResponse);
         if(BoolResponse===false && replicasAproved !== 0){
             console.log(`Failed Write ${key}`,this.nodePort);
             this.backTrackWriteReplica(token,key,'FAIL');
@@ -211,13 +215,27 @@ class StorageNode {
         }, 5000);*/
     }
 
-    handleTopologyUpdate(nodes) {
+    handleTopologyUpdate(nreplicas,nodes) {
         //console.log(`Node ${this.nodePort} received topology update:`);
-        this.nodesMap.clear();
-        for (const key in nodes) {
-            //console.log(Buffer.from(nodes[key]).toString());
-            this.nodesMap.set(key,Buffer.from(nodes[key]));
+        if (!this.consistentHash){
+            this.consistentHash = new ConsistentHash(nreplicas);
         }
+        const setCopy = new Set(this.consistentHash.nodes);
+        for (const key in nodes) {
+            if(!this.consistentHash.nodes.has(key)){
+                this.consistentHash.addNode(key);
+            }else{
+                setCopy.delete(key);
+            }
+        }
+        //dont worry about remove for now
+        /*
+        if(setCopy.size > 0){
+            for (const key of setCopy) {
+                //remove nodes
+                this.consistentHash.removeNode(key);
+            }
+        }*/
         // Implement data rebalancing logic here
     }
 }

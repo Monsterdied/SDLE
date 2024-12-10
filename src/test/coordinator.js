@@ -99,7 +99,7 @@ class Coordinator {
         await this.consistentHash.addNode(address);
         this.node_id_to_identifiers.set(address, identity);
         this.nodeHeartbeats.set(identity.toString(), Date.now());
-        this.publisher.send(['TOPOLOGY_UPDATE', JSON.stringify(Object.fromEntries(this.node_id_to_identifiers))]);
+        this.publisher.send(['TOPOLOGY_UPDATE',this.nreplicas ,JSON.stringify(Object.fromEntries(this.node_id_to_identifiers))]);
         this.register_lock.release();
     }
 
