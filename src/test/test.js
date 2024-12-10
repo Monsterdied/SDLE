@@ -29,7 +29,7 @@ async function main() {
     }
     // Give some time for nodes to initialize
     await new Promise(resolve => setTimeout(resolve, 1000));
-    for (let i = 0; i < 1; i++) {
+    for (let i = 0; i < 60; i++) {
         test(i);
     }
     // Start Client

@@ -90,7 +90,7 @@ class ConsistentHash {
         this.lock.release();
         return result;
     }
-    async getPreferrencedList(key) {
+    async getPreferrencedList(key,lenghtPreference =this.nreplicas*2) {
         if (this.ring.size === 0) return null;
         await this.lock.acquire();
         const hash = this.getHash(key);
@@ -103,17 +103,17 @@ class ConsistentHash {
                 const node = this.ring.get(h);
 
             }
-            if (result.length >= this.nreplicas*2) break;
+            if (result.length >= lenghtPreference) break;
         }
         // complete the circle in the hash ring
-        if (result.length < this.nreplicas*2){
+        if (result.length < lenghtPreference){
             for (const h of this.sortedHashes) {
                 const node = this.ring.get(h);
                 if(!nodeParents.includes(node.split(':')[0])){
                     nodeParents.push(node.split(':')[0]);
                     result.push(node);
                 } 
-                if (result.length >= this.nreplicas*2) break;
+                if (result.length >= lenghtPreference) break;
             }
         }
         console.log(result);

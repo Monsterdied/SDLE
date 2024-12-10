@@ -61,10 +61,11 @@ class Coordinator {
                 console.log('CORDINATOR Node chossed:', portsIds1.toString());
                 const identity2 = this.node_id_to_identifiers.get(portsIds1[0].split(':')[0]);
                 const replicas_Needed_To_Akc = this.nreplicas;
-                await this.router.send( [identity2,'PUT', token1,key1,crdt,JSON.stringify(portsIds1),replicas_Needed_To_Akc]);
+                const FailedToWrite = [];
+                await this.router.send( [identity2,'PUT', token1,key1,crdt,JSON.stringify(portsIds1),replicas_Needed_To_Akc,JSON.stringify(FailedToWrite)]);
                 console.log('CORDINATOR Request:', identity2);
                 console.log('CORDINATOR Date:', Date.now());
-                this.tokens_to_request.set(token1.toString(), [Date.now(),identity,portsIds1,'PUT',key1,crdt,replicas_Needed_To_Akc]);
+                this.tokens_to_request.set(token1.toString(), [Date.now(),identity,'PUT',key1,crdt,portsIds1,replicas_Needed_To_Akc,FailedToWrite]);
                 //console.log('CORDINATOR Response:', response1.toString());
                 break;
             //reply from node
@@ -131,18 +132,18 @@ class Coordinator {
             for (const [identity, [lastBeat,type,...rest]] of this.tokens_to_request) {
                 switch (type) {
                     case 'GET':
-                        if (now - lastBeat > this.getTimeout) { // 10 seconds timeout
+                        if (now - lastBeat > this.getTimeout) { // 1 seconds timeout
                             //handle timeout request
                         }
                     break;
                     case 'PUT':
-                        if (now - lastBeat > this.putTimeout) { // 10 seconds timeout
+                        if (now - lastBeat > this.putTimeout) { // 1.2 seconds timeout
                             //handle timeout request
                         }
                     break;
                 }
             }
-        }, 1000); // Check every 5 seconds
+        }, 500); // Check every 0.5 seconds
     }
 }
 module.exports = { Coordinator };

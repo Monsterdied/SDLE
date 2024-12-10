@@ -10,6 +10,7 @@ class StorageNode {
         this.dealer = new zmq.Dealer();
         this.subscriber = new zmq.Subscriber();
         this.storage = new Map();
+        this.storageBorrowed = new Map();
         //this.coordinatorAddress = coordinatorAddress;
         this.coordinatorPort = coordinatorPort;
         this.publishPort = publishPort;
@@ -23,7 +24,7 @@ class StorageNode {
         this.storageMutex = new Mutex();
         this.callBackMutex = new Mutex();
         this.test = 0;
-        this.noise = 0.99;
+        this.noise = 1;
         this.consistentHash;
     }
 
@@ -47,6 +48,32 @@ class StorageNode {
         // Start heartbeat
         
 
+    }
+    async addToStorage(key,value,removeNodes){
+        //convert virtual nodes to nodesIdS
+        const vnodes = this.consistentHash.getVirtualNodes(key,this.nreplicas);
+        for (const vnode of vnodes) {
+            const node = vnode.split(':')[0];
+            if(node === this.nodePort.toString()){
+                await this.storageMutex.acquire();
+                this.storage.set(vnode,value);
+                this.storageMutex.release();
+                return removeNodes;
+            }
+        }
+        //This Node is Not responsible for this key
+        console.log('Not responsible for this key',key,this.nodePort);
+        await this.storageMutex.acquire();
+        if(this.storageBorrowed.get(removeNodes[0]) !== undefined){
+            this.storageBorrowed.set(removeNodes[0],[(key,value)]);
+        }else{
+            const arr =this.storageBorrowed.get(removeNodes[0]);
+            arr.push([key,value]);
+            this.storageBorrowed.set(removeNodes[0],arr);
+        }
+            this.storageMutex.release();
+            removeNodes.shift();
+        return removeNodes.shift();
     }
     async handleTopologyUpdates() {
         // Handle topology updates
@@ -87,14 +114,20 @@ class StorageNode {
         const preferenceList = JSON.parse(packet[2].toString());
         await this.callBackMutex.acquire();
             this.tokenToCallback.set(token, [entity,preferenceList[0]]);
+
+
+
+
+            ///warning change the write to write only when all replicas are written Or maby not disscuss with team
         this.callBackMutex.release();
         //console.log("NODEID:",this.nodePort,"CALL BACK:", this.tokenToCallback,"Packet :",packet.toString());
         let replicasAproved = Number(packet[3].toString());
+        let replicasFailedToWrite = JSON.parse(packet[4].toString());
         const key = packet[0].toString();
         const crdt = packet[1].toString();
         console.log("Preference list:",preferenceList,"nReplicas",replicasAproved,"CRDT",crdt,"Token",token,"Entity",entity,"nodePort",this.nodePort);
         await this.storageMutex.acquire();
-            this.storage.set(key, crdt);
+
         this.storageMutex.release();
         replicasAproved--;
         if (replicasAproved > 0) {
@@ -106,7 +139,7 @@ class StorageNode {
             if(this.hasDuplicates(preferenceList)){
                 throw new Error('Duplicate nodes in preference list',preferenceList);
             }
-            await this.createRequestToReplica(token,key,crdt,preferenceList,replicasAproved);
+            await this.createRequestToReplica(token,key,crdt,preferenceList,replicasAproved,replicasFailedToWrite);
         }else{
             console.log('Starting backtracking',this.nodePort,key);
             this.backTrackWriteReplica(token,key,'OK');
@@ -208,24 +241,15 @@ class StorageNode {
                     console.log(`Received Set request in router ${this.nodePort}`);
                     this.propagateWrite(entity,token,packet);
                     break;
-                case 'DISCARD':
+                /*case 'DISCARD':
                     console.log(`Received Discard request in router ${this.nodePort}, ${packet}`);
                     //TODO backtrack
-                    break;
+                    break;*/
             }
         }
     }
 
-    startHeartbeat() {
-        /*setInterval(async () => {
-            try {
-                console.log(`Sending heartbeat node ${this.nodePort}`);
-                await this.dealer.send(['HEARTBEAT']);
-            } catch (err) {
-                console.error('Failed to send heartbeat:', err);
-            }
-        }, 5000);*/
-    }
+
 
     handleTopologyUpdate(nreplicas,nodes) {
         //console.log(`Node ${this.nodePort} received topology update:`);
