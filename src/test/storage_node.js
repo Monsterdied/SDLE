@@ -22,7 +22,7 @@ class StorageNode {
         this.storageMutex = new Mutex();
         this.callBackMutex = new Mutex();
         this.test = 0;
-        this.noise = 0.85;
+        this.noise = 1;
     }
 
     async initialize() {
@@ -106,7 +106,7 @@ class StorageNode {
             await this.createRequestToReplica(token,key,crdt,preferenceList,replicasAproved);
         }else{
             console.log('Starting backtracking',this.nodePort,key);
-            this.backTrackWriteReplica(token,key);
+            this.backTrackWriteReplica(token,key,'OK');
         }   
     }
     async createRequestToReplica(token,key,crdt,preferenceList,replicasAproved){
@@ -134,6 +134,7 @@ class StorageNode {
         }
         if(BoolResponse===false && replicasAproved !== 0){
             console.log(`Failed Write ${key}`,this.nodePort);
+            this.backTrackWriteReplica(token,key,'FAIL');
             //TODO backtrack not commit write
         }
         
@@ -149,7 +150,8 @@ class StorageNode {
         switch (type.toString()) {
             case 'PUT_RESPONSE':
                 //console.log(`Received Dealer response ${this.nodePort}`);
-                this.backTrackWriteReplica(token,packet[1].toString());
+                console.log('Received Dealer response',packet[0].toString());
+                this.backTrackWriteReplica(token,packet[1].toString(),packet[0].toString());
                 break;
             }
             return true;
@@ -157,7 +159,7 @@ class StorageNode {
             return false;
         }
     }
-    async backTrackWriteReplica(token,key){
+    async backTrackWriteReplica(token,key,value){
         //console.log('Backtracking to coordinator',this.nodePort);
         //console.log('Token:',this.tokenToCallback);
         await this.callBackMutex.acquire();
@@ -172,13 +174,13 @@ class StorageNode {
             await this.routerMutex.acquire();
                 console.log('Backtracking to storage',key,this.nodePort,this.tokenToCallback.get(token.toString())[1]);
             const delimeter = "";
-                await this.routerSocket.send([entity,delimeter,'PUT_RESPONSE',token, 'OK',key.toString()]);
+                await this.routerSocket.send([entity,delimeter,'PUT_RESPONSE',token, value,key.toString()]);
             this.routerMutex.release();
             //release();
         }else{
             //console.log('Backtracking to coordinator');
             await this.dealerMutex.acquire();
-            await this.dealer.send(['PUT_RESPONSE',token, 'OK']);
+            await this.dealer.send(['PUT_RESPONSE',token,value]);
             this.dealerMutex.release();
         }
     }

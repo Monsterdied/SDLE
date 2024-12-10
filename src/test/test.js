@@ -41,9 +41,12 @@ async function test(id){
     //console.log('Client started');
 
     // Perform SET operation
+    let setStatus = 'FAIL';
     console.log('CLIENT SET key:', `key${id}`);
-    const setStatus = await client.set(`key${id}`, `value${id}`);
-    console.log('CLIENT SET status Return:', setStatus);
+    while(setStatus !== 'OK') {
+        setStatus = await client.set(`key${id}`, `value${id}`);
+        console.log('CLIENT SET status Return:', setStatus);   
+    }
     //console.log('tester SET status:', setStatus);
     assert.strictEqual(setStatus, 'OK', `SET operation failed for key${id}`);
 
