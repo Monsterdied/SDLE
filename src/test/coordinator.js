@@ -110,24 +110,6 @@ class Coordinator {
         this.nodeHeartbeats.set(identity, Date.now());
     }
 
-    monitorHeartbeats() {/*
-        setInterval(async () => {
-            const now = Date.now();
-            for (const [identity, lastBeat] of this.nodeHeartbeats) {
-                if (now - lastBeat > 10000) { // 10 seconds timeout
-                    const node = Array.from(this.consistentHash.nodes)
-                        .find(n => n.includes(identity));
-                    if (node) {
-                        await this.consistentHash.removeNode(node);
-                        this.nodeHeartbeats.delete(identity);
-                        this.publisher.send(['TOPOLOGY_UPDATE', 
-                            JSON.stringify(Array.from(this.consistentHash.nodes))]);
-                    }
-                }
-            }
-        }, 5000); // Check every 5 seconds
-        */
-    }
     monitorRequests() {
         setInterval(() => {
             const now = Date.now();
