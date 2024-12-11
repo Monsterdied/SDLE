@@ -25,7 +25,7 @@ class Coordinator {
         await this.publisher.bind(`tcp://*:${this.publishPort}`);
         
         // Start heartbeat monitor
-        this.monitorHeartbeats();
+        this.monitorRequests();
         
         while (true) {
             const [identity, type, ...rest] = await this.router.receive();
@@ -59,6 +59,7 @@ class Coordinator {
                 console.log('CORDINATOR Request:', key1.toString(), token1.toString());
                 const portsIds1 = await this.consistentHash.getNode(key1.toString());
                 console.log('CORDINATOR Node chossed:', portsIds1.toString());
+                console.log('CORDINATOR Node chossed:', JSON.stringify(Object.fromEntries(this.node_id_to_identifiers)));
                 const identity2 = this.node_id_to_identifiers.get(portsIds1[0].split(':')[0]);
                 const replicas_Needed_To_Akc = this.nreplicas;
                 const FailedToWrite = [];
@@ -98,9 +99,10 @@ class Coordinator {
     async registerNode(identity, address) {
         this.register_lock.acquire();
         await this.consistentHash.addNode(address);
-        this.node_id_to_identifiers.set(address, identity);
         this.nodeHeartbeats.set(identity.toString(), Date.now());
-        this.publisher.send(['TOPOLOGY_UPDATE',this.nreplicas ,JSON.stringify(Object.fromEntries(this.node_id_to_identifiers))]);
+        this.node_id_to_identifiers.set(address, identity);
+        console.log('CORDINATOR Register:', Array.from(this.consistentHash.nodes));
+        this.publisher.send(['TOPOLOGY_UPDATE',this.nreplicas ,JSON.stringify(Array.from(this.consistentHash.nodes))]);
         this.register_lock.release();
     }
 
@@ -129,16 +131,17 @@ class Coordinator {
     monitorRequests() {
         setInterval(() => {
             const now = Date.now();
-            for (const [identity, [lastBeat,type,...rest]] of this.tokens_to_request) {
+            //console.log('CORDINATOR CHECK TOKENS:', Array.from(this.tokens_to_request));
+            for (const [token, [lastBeat,identity,type,...rest]] of this.tokens_to_request) {
                 switch (type) {
                     case 'GET':
                         if (now - lastBeat > this.getTimeout) { // 1 seconds timeout
-                            //handle timeout request
+                            console.log('CORDINATOR GET TIMEOUT:', identity.toString());
                         }
                     break;
                     case 'PUT':
                         if (now - lastBeat > this.putTimeout) { // 1.2 seconds timeout
-                            //handle timeout request
+                            console.log('CORDINATOR PUT TIMEOUT:', identity.toString());
                         }
                     break;
                 }

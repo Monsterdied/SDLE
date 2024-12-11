@@ -101,7 +101,10 @@ class ConsistentHash {
         for (const h of this.sortedHashes) {
             if (h >= hash){
                 const node = this.ring.get(h);
-
+                if(!nodeParents.includes(node.split(':')[0])){
+                    nodeParents.push(node.split(':')[0]);
+                    result.push(node);
+                } 
             }
             if (result.length >= lenghtPreference) break;
         }

@@ -22,14 +22,17 @@ async function main() {
     console.log('Coordinator started');
 
     // Start Storage Node
+    let debug = true
     for (let i = initialStorageNodePort; i < initialStorageNodePort + numberOfNodes*3; i=i+3) {
-        const storageNode = new StorageNode(i, coordinatorPort, publishPort);
+        const storageNode = new StorageNode(i, coordinatorPort, publishPort,debug);
+        debug = false
         storageNode.initialize();
         console.log(`Storage Node ${i} started`);
+        await new Promise(resolve => setTimeout(resolve, 200));
     }
     // Give some time for nodes to initialize
     await new Promise(resolve => setTimeout(resolve, 1000));
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 120; i++) {
         test(i);
     }
     // Start Client
