@@ -27,7 +27,7 @@ class StorageNode {
         this.callBackMutex = new Mutex();
         this.entityMutex = new Mutex();
         this.test = 0;
-        this.noise = 0.5;
+        this.noise = 1;
         this.nreplicas;
         this.consistentHash;
         this.debug = debug;
@@ -105,10 +105,13 @@ class StorageNode {
         //Add to borrowed storage
         console.log('Adding to borrowed storage',removeNodes[0],key,value);
         if(this.storageBorrowed.get(removeNodes[0]) === undefined){
-            this.storageBorrowed.set(removeNodes[0],[(key,value)]);
+            const newlist = {};
+            newlist[key] = value;
+            this.storageBorrowed.set(removeNodes[0],newlist);
+            console.log('TEST1', newlist);
         }else{
             const arr =this.storageBorrowed.get(removeNodes[0]);
-            arr.push([key,value]);
+            arr[key] = value;
             this.storageBorrowed.set(removeNodes[0],arr);
         }
         this.borrowedStorageMutex.release();
@@ -292,42 +295,81 @@ class StorageNode {
                     console.log(`Received Set request in router ${this.nodePort}`);
                     this.propagateWrite(entity,token,packet);
                     break;
-                case 'UPDATE':
-                    console.log(`Received Discard request in router ${this.nodePort}, ${packet}`);
-                    //TODO backtrack
+                case 'BORROWED':
+                    console.log(`Received Borrowed request in router ${this.nodePort}, ${packet}`);
+                    const list = JSON.parse(token.toString());
+                    this.routerMutex.acquire();
+                    this.routerSocket.send([entity,'','UPDATE_RESPONSE',token,'OK']);
+                    this.routerMutex.release();
+                    //update the storage
+                    for (const [key,value] of Object.entries(list)) {
+                        console.log('Discarding:',key);
+                        console.log('value:',value);
+                        this.addToStorage(key,value,[]);
+                    }
                     break;
             }
         }
     }
 
     monitorBorrowedStorage() {
-        setInterval(() => {
+        setInterval(async () => {
             const now = Date.now();
             //Probably timeout the temporary storage from now and then
-            this.borrowedStorageMutex.acquire();
-            for (const [NodeId, list] of this.storageBorrowed) {
-                console.log('Storage borrowed:',NodeId,list);
-                
-            }
+            await this.borrowedStorageMutex.acquire();
+            //so that we dont lock this variable for too long
+            const tmpStorageBorrowed = new Map(this.storageBorrowed);
+
             this.borrowedStorageMutex.release();
-        }, 10000); // Check every 10 seconds
+            for (const [NodeId, list] of tmpStorageBorrowed) {
+                console.log('Storage borrowed:',NodeId,list);
+                const result = await this.sendBorrowedToReplica(NodeId.split(':')[0],list);
+                if(result === true){
+                    //update the real storage
+                    await this.borrowedStorageMutex.acquire();
+                    let newlist = this.storageBorrowed.get(NodeId);
+                    if(newlist === undefined){
+                        newlist = {};
+                    }
+                    console.log('Newlist:',Object.keys(list));
+                    // to check if the list was updated while we were sending it
+                    const setChecker = new Set(Object.keys(list));
+                    newlist = Object.keys(newlist)
+                    .filter(key => key > !setChecker.has(key))
+                    .reduce((acc, key) => {
+                        acc[key] = newlist[key];
+                        return acc;
+                    }, {});
+                    //if the list was not updated while we were sending it
+                    // we can remove it from the borrowed storage
+                    console.log('Newlist:',Object.keys(newlist).length);
+                    if(Object.keys(newlist).length !== 0){
+                        this.storageBorrowed.set(NodeId,newlist);
+                    }else{
+                        this.storageBorrowed.delete(NodeId);
+                    }
+                    this.borrowedStorageMutex.release();
+                }
+            }
+        }, 3000); // Check every 10 seconds
     }
-    async sendBorrowedToReplica(address,values){
+    async sendBorrowedToReplica(nodeid,values){
         const request = new zmq.Request();
         request.receiveTimeout = 300;
         request.sendTimeout = 300;
+        const address = `tcp://localhost:${parseInt(nodeid) + 1}`;
         request.connect(address);
         try{
-        await request.send(['BORROWED', JSON.stringify(values)]);
-        console.log('Sent borrowed storage to replica',address);
-        const [type,token,...packet] = await request.receive();
-        console.log(`Received Dealer response ${this.nodePort}`);
-        console.log('Received Dealer response',packet[0].toString());
-        if(packet[0].toString() === 'OK'){
-            return true;
-        }else{
-            return false;
-        }
+            await request.send(['BORROWED', JSON.stringify(values)]);
+            console.log('Sent borrowed storage to replica',address);
+            const [type,token,...packet] = await request.receive();
+            console.log(`Received Dealer response ${this.nodePort}`);
+            console.log('Received Dealer response',packet[0].toString());
+            if(packet[0].toString() === 'OK'){
+                return true;
+            }else{
+                return false;
+            }
         }catch(err){
             request.close();
             console.log('Failed to receive response Borrowed:', err);
