@@ -99,13 +99,9 @@
                 console.log(response);
 
                 const result = await response.json();
-                
-                if (result.success) {
-                    // Reload lists
-                    loadExistingLists();
-                } else {
-                    alert('Failed to delete list');
-                }
+
+                loadExistingLists();
+
                 // Clear input
                 newListNameInput.value = '';
                     

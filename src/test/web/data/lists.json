@@ -10,7 +10,7 @@
           "name": "bread",
           "counter": {
             "pCounters": {
-              "5978e4fa-a467-4310-b2a3-1120785379de": 2
+              "5978e4fa-a467-4310-b2a3-1120785379de": 9
             },
             "nCounters": {
               "5978e4fa-a467-4310-b2a3-1120785379de": 0
@@ -34,7 +34,7 @@
   {
     "name": "hello",
     "crdt": {
-      "id": "5978e4fa-a467-4310-b2a3-1120785379de",
+      "id": "8940dcaa-0367-44af-b0de-9154f05fde8a3333",
       "counter": 0,
       "listname": "hello",
       "items": [],
@@ -54,7 +54,7 @@
   {
     "name": "bob",
     "crdt": {
-      "id": "5978e4fa-a467-4310-b2a3-1120785379de",
+      "id": "8940dcaa-0367-44af-b0de-9154f05fde8a3333",
       "counter": 0,
       "listname": "bob",
       "items": [],
@@ -92,35 +92,12 @@
     }
   },
   {
-    "name": "tomato",
+    "name": "deg",
     "crdt": {
       "id": "8940dcaa-0367-44af-b0de-9154f05fde8a3333",
       "counter": 0,
-      "listname": "tomato",
-      "items": [
-        {
-          "name": "potato",
-          "counter": {
-            "pCounters": {
-              "8940dcaa-0367-44af-b0de-9154f05fde8a3333": 4
-            },
-            "nCounters": {
-              "8940dcaa-0367-44af-b0de-9154f05fde8a3333": 0
-            }
-          }
-        },
-        {
-          "name": "tomato",
-          "counter": {
-            "pCounters": {
-              "8940dcaa-0367-44af-b0de-9154f05fde8a3333": 4
-            },
-            "nCounters": {
-              "8940dcaa-0367-44af-b0de-9154f05fde8a3333": 0
-            }
-          }
-        }
-      ],
+      "listname": "deg",
+      "items": [],
       "removed_items": []
     }
   }

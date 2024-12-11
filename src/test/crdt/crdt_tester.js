@@ -1,5 +1,5 @@
-import { PNCounter } from "./PNCounter.js";
-import { Aworset } from "./Aworset.js";
+const {PNCounter} = require( "./PNCounter.js");
+const {Aworset} =  require("./Aworset.js");
 
 // PNCounter Tests
 function runPNCounterTests() {
@@ -132,6 +132,20 @@ function runAworsetTests() {
 
     console.log("This must be equal:", deserialized.getItems(),"\n");
     console.log("This must be equal:", aliceList.getItems(),"\n");
+
+    // test 11: remove in one replica and add in another then merge
+    console.log("\nTest 11: remove in one replica and add in another then merge");
+    const list3 = new Aworset('replica1', 'Concurrent Test');
+    const list4 = new Aworset('replica2', 'Concurrent Test');
+
+    list3.addItem('apple', 3);
+    list4.merge(list3);
+    list3.removeItem('apple');
+    list4.addItem('apple', 2);
+    list4.merge(list3);
+    console.log("Concurrent apple quantity:", list4.getItems());
+    console.log("Concurrent apple quantity:", list4.toJson());
+
 
 
 }

@@ -1,7 +1,8 @@
 
 class PNCounter{
-    constructor(id, quantity=0){
+    constructor(id,id_of_latest_addition=id, quantity=0){
         this.id = id;
+        this.id_of_latest_addition = id_of_latest_addition;
         this.pCounters = {};
         this.nCounters = {};
         this.pCounters[id] = 0;
@@ -14,6 +15,7 @@ class PNCounter{
     }
     increment(val) {
         this.pCounters[this.id]+= val;
+        this.id_of_latest_addition_or_deletion = this.id;
     }
 
     decrement(val) {
