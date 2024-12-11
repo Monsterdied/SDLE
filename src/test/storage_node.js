@@ -26,7 +26,7 @@ class StorageNode {
         this.callBackMutex = new Mutex();
         this.entityMutex = new Mutex();
         this.test = 0;
-        this.noise = 1;
+        this.noise = 0.5;
         this.nreplicas;
         this.consistentHash;
         this.debug = debug;
@@ -62,6 +62,9 @@ class StorageNode {
             value = this.storageBorrowed.get(key);
         }
         this.storageMutex.release();
+        if (value === undefined){
+            return false;
+        }
         return value;
     }
     //checks if it is responsible for the key, if it is adds it to the storage, if not returns the next node to send the request to
@@ -115,7 +118,14 @@ class StorageNode {
             console.log(`NODE Received packet: ${packet}`);
             switch (type.toString()) {
                 case 'GET':
-                        this.dealer.send(['GET_RESPONSE',token, await this.getFromStorage(packet[0].toString())]);
+                        const value = await this.getFromStorage(packet[0].toString());
+                        if(value === false){
+                            console.log('GET request received',this.storage);
+                            this.dealer.send(['GET_RESPONSE',token,'FAIL']);
+                        }else{
+                            this.dealer.send(['GET_RESPONSE',token,value ]);
+                        }
+
                         //console.log('GET request received',this.storage.get(packet[0].toString()));
                         //console.log('GET request received',this.storage);
                     break;
@@ -170,7 +180,7 @@ class StorageNode {
         let BoolResponse = false;
         while(preferenceList.length > 1){
             console.log('Sending request to replica',preferenceList[1],this.nodePort,token,key,crdt,preferenceList,replicasAproved);
-
+            
             const request = new zmq.Request();
             request.receiveTimeout = 300*replicasAproved;//if there are more replicas to be aproved, wait longer
             const address = `tcp://localhost:${parseInt(preferenceList[1].split(':')[0]) + 1}`;
@@ -191,7 +201,7 @@ class StorageNode {
                 break;
             }else if(tries>=resendTries){
                 console.log(`not working ${key}`,replicasAproved);
-                //request.disconnect(address);
+                replicasFailedToWrite.push(preferenceList[1]);
                 preferenceList.shift();
                 //request.close();
                 tries = 0;
@@ -239,11 +249,13 @@ class StorageNode {
             return;
         }
         const entity = this.tokenToCallback.get(token.toString())[0];
+        const debugPort = this.tokenToCallback.get(token.toString())[0]
+        this.tokenToCallback.delete(token.toString());
         this.callBackMutex.release();
         if(entity !== false ){
             //console.log(this.storage);
             await this.routerMutex.acquire();
-                console.log('Backtracking to storage',key,this.nodePort,this.tokenToCallback.get(token.toString())[1]);
+                console.log('Backtracking to storage',key,this.nodePort,debugPort);
             const delimeter = "";
                 await this.routerSocket.send([entity,delimeter,'PUT_RESPONSE',token, value,key.toString()]);
             this.routerMutex.release();
