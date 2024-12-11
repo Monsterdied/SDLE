@@ -27,7 +27,7 @@ class StorageNode {
         this.callBackMutex = new Mutex();
         this.entityMutex = new Mutex();
         this.test = 0;
-        this.noise = 1;
+        this.noise = 0.5;
         this.nreplicas;
         this.consistentHash;
         this.debug = debug;
@@ -307,9 +307,32 @@ class StorageNode {
             this.borrowedStorageMutex.acquire();
             for (const [NodeId, list] of this.storageBorrowed) {
                 console.log('Storage borrowed:',NodeId,list);
+                
             }
             this.borrowedStorageMutex.release();
-        }, 2000); // Check every 2 seconds
+        }, 10000); // Check every 10 seconds
+    }
+    async sendBorrowedToReplica(address,values){
+        const request = new zmq.Request();
+        request.receiveTimeout = 300;
+        request.sendTimeout = 300;
+        request.connect(address);
+        try{
+        await request.send(['BORROWED', JSON.stringify(values)]);
+        console.log('Sent borrowed storage to replica',address);
+        const [type,token,...packet] = await request.receive();
+        console.log(`Received Dealer response ${this.nodePort}`);
+        console.log('Received Dealer response',packet[0].toString());
+        if(packet[0].toString() === 'OK'){
+            return true;
+        }else{
+            return false;
+        }
+        }catch(err){
+            request.close();
+            console.log('Failed to receive response Borrowed:', err);
+            return false;
+        }
     }
 
     async handleTopologyUpdate(nreplicas,nodes) {
