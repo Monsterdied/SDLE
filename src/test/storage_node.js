@@ -3,6 +3,7 @@ const zmq = require('zeromq');
 const { Mutex } = require('async-mutex');
 const ConsistentHash = require('./consistent_hash');
 const { json } = require('express');
+const { Aworset } = require("./crdt/Aworset.js");
 
 // ============ Storage Node ============
 class StorageNode {
@@ -22,11 +23,11 @@ class StorageNode {
         this.routerMutex = new Mutex();
         this.storageMutex = new Mutex();
         this.dealerMutex = new Mutex();
-        this.storageMutex = new Mutex();
+        this.borrowedStorageMutex = new Mutex();
         this.callBackMutex = new Mutex();
         this.entityMutex = new Mutex();
         this.test = 0;
-        this.noise = 0.5;
+        this.noise = 1;
         this.nreplicas;
         this.consistentHash;
         this.debug = debug;
@@ -48,6 +49,7 @@ class StorageNode {
         this.handleTopologyUpdates();
         this.receivePackets();
         this.listenToReplicasRouter();
+        this.monitorBorrowedStorage();
         // Start heartbeat
         
 
@@ -76,7 +78,19 @@ class StorageNode {
             const node = vnode.split(':')[0];
             if(node === this.nodePort.toString()){
                 await this.storageMutex.acquire();
-                this.storage.set(key,value);
+                //check if the key is already in the storage
+                if(this.storage.get(key) !== undefined){
+                    const crdtString = this.storage.get(key);
+                    const firstCrdt = Aworset.fromJson(crdtString);
+                    const secondCrdt = Aworset.fromJson(value);
+                    //console.log('First:',firstCrdt.toJson());
+                    //console.log('Second:',secondCrdt.toJson());
+                    firstCrdt.merge(secondCrdt);
+                    //console.log('Merged:',firstCrdt.toJson());
+                    this.storage.set(key,firstCrdt.toJson());
+                }else{
+                    this.storage.set(key,value);
+                }
                 this.storageMutex.release();
                 return removeNodes;
             }
@@ -87,7 +101,9 @@ class StorageNode {
         }
         //This Node is Not responsible for this key
         console.log('Not responsible for this key',key,this.nodePort);
-        await this.storageMutex.acquire();
+        await this.borrowedStorageMutex.acquire();
+        //Add to borrowed storage
+        console.log('Adding to borrowed storage',removeNodes[0],key,value);
         if(this.storageBorrowed.get(removeNodes[0]) === undefined){
             this.storageBorrowed.set(removeNodes[0],[(key,value)]);
         }else{
@@ -95,7 +111,7 @@ class StorageNode {
             arr.push([key,value]);
             this.storageBorrowed.set(removeNodes[0],arr);
         }
-            this.storageMutex.release();
+        this.borrowedStorageMutex.release();
             removeNodes.shift();
         return removeNodes;
     }
@@ -276,15 +292,25 @@ class StorageNode {
                     console.log(`Received Set request in router ${this.nodePort}`);
                     this.propagateWrite(entity,token,packet);
                     break;
-                /*case 'DISCARD':
+                case 'UPDATE':
                     console.log(`Received Discard request in router ${this.nodePort}, ${packet}`);
                     //TODO backtrack
-                    break;*/
+                    break;
             }
         }
     }
 
-
+    monitorBorrowedStorage() {
+        setInterval(() => {
+            const now = Date.now();
+            //Probably timeout the temporary storage from now and then
+            this.borrowedStorageMutex.acquire();
+            for (const [NodeId, list] of this.storageBorrowed) {
+                console.log('Storage borrowed:',NodeId,list);
+            }
+            this.borrowedStorageMutex.release();
+        }, 2000); // Check every 2 seconds
+    }
 
     async handleTopologyUpdate(nreplicas,nodes) {
         //console.log(`Node ${this.nodePort} received topology update:`);

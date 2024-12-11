@@ -1,4 +1,4 @@
-import {PNCounter} from "./PNCounter.js";
+const {PNCounter} = require( "./PNCounter.js");
 class Aworset{
     constructor(id=0, listname="none"){
         this.id = id;
@@ -160,4 +160,4 @@ class Aworset{
         return aworset;
     }
 }
-export {Aworset};
+module.exports = {Aworset};

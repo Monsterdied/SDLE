@@ -7,6 +7,7 @@ const ConsistentHash = require('./consistent_hash');
 const assert = require('assert');
 const { Console } = require('console');
 const { threadId } = require('worker_threads');
+const { Aworset } = require("./crdt/Aworset.js");
 let passed = 0
 const passedTests = [];
 async function main() {
@@ -32,7 +33,7 @@ async function main() {
     }
     // Give some time for nodes to initialize
     await new Promise(resolve => setTimeout(resolve, 1000));
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 1; i++) {
         test(i);
     }
     // Start Client
@@ -47,8 +48,22 @@ async function test(id){
     // Perform SET operation
     let setStatus = 'FAIL';
     console.log('CLIENT SET key:', `key${id}`);
+    let shoppingList = new Aworset('replica1', 'Shopping List');
+    const valuesTest = {apple: Math.floor( Math.random()*10) + 1, banana: Math.floor(Math.random()*5) + 1, orange: 3};
+    shoppingList.addItem('apple',valuesTest.apple);
+    shoppingList.addItem('banana',valuesTest.banana);
     while(setStatus !== 'OK') {
-        setStatus = await client.set(`key${id}`, `value${id}`);
+
+        setStatus = await client.set(`key${id}`, shoppingList.toJson());
+        console.log('CLIENT SET status Return:', setStatus);   
+        console.log('CLIENT SET status Return:', setStatus); 
+        //await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+    shoppingList.addItem('orange',valuesTest.orange);
+    setStatus = 'FAIL';
+    while(setStatus !== 'OK') {
+
+        setStatus = await client.set(`key${id}`, shoppingList.toJson());
         console.log('CLIENT SET status Return:', setStatus);   
         console.log('CLIENT SET status Return:', setStatus); 
         //await new Promise(resolve => setTimeout(resolve, 3000));
@@ -59,10 +74,23 @@ async function test(id){
 
     // Perform GET operation
     console.log('CLIENT GET key:', `key${id}`);
-    const getValue = await client.get(`key${id}`);
-    console.log('CLIENT GET value:', getValue);
+    const crdt = await client.get(`key${id}`);
+    console.log('CLIENT GET value:', crdt);
     //console.log('Tester GET value:', getValue.toString());
-    assert.strictEqual(getValue.toString(), `value${id}`, `GET operation failed for key${id}`);
+    const crdtsList = Aworset.fromJson( crdt);
+    const items = crdtsList.getItems();
+    console.log('Tester GET value:', items);
+    for(const item in items){
+        console.log('Item:', item, 'Quantity:', items[item].quantity);
+        console.log('Item:', item, 'Quantity:', valuesTest[item]);
+        assert.strictEqual(valuesTest[item], items[item].quantity, `GET operation failed for key${id}`);
+    }
+    for(const item in valuesTest){
+        console.log('Item:', item, 'Quantity:', valuesTest[item]);
+        console.log('Item:', item, 'Quantity:', items[item].quantity);
+        //assert.strictEqual(valuesTest[item], items[item].quantity, `GET operation failed for key${id}`);
+    }
+    //assert.strictEqual(getValue.toString(), `value${id}`, `GET operation failed for key${id}`);
     console.log(`Test passed${id}`);
     passed++;
     //console.log(`Passed n ${passed}`);

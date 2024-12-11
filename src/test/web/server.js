@@ -1,12 +1,11 @@
-import express from 'express';
-import bodyParser from 'body-parser';
-import { promises as fs } from 'fs';
-import { fileURLToPath } from 'url';
-import path from 'path';
-import cors from 'cors';
-import open from 'open';
-import { Aworset } from './crdt/Aworset.js';
-import {Client} from '../client.js'
+const express = require( 'express');
+const bodyParser = require( 'body-parser');
+const { promises } = require('fs');
+const { fileURLToPath } = require( 'url');
+const path = require( 'path');
+const  cors = require( 'cors');
+const { Aworset } = require('../crdt/Aworset.js');
+const {Client} = require( '../client.js')
 
 const app = express();
 const coordinatorAddress= process.argv[2];
@@ -27,8 +26,8 @@ app.use(bodyParser.json());
 app.use(express.static('public')); // Serve static files from 'public' directory
 
 // File paths
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+//const __filename = fileURLToPath(import.meta.url);
+//const __dirname = path.dirname(__filename);
 const LISTS_FILE = path.join(__dirname, 'data', 'lists.json');
 
 
@@ -37,7 +36,7 @@ let Map_of_shopping_lists = new Map();
 // Utility function to read lists
 async function getallshoppingLists() {
     try {
-        const data = await fs.readFile(LISTS_FILE, 'utf8');
+        const data = await promises.readFile(LISTS_FILE, 'utf8');
         const lists = JSON.parse(data);
 
         // Create an Aworset for each list
@@ -51,8 +50,8 @@ async function getallshoppingLists() {
     } catch (error) {
         if (error.code === 'ENOENT') {
             console.log('File not found, creating new file');
-            await fs.mkdir(path.dirname(LISTS_FILE), { recursive: true });
-            await fs.writeFile(LISTS_FILE, JSON.stringify([]));
+            await promises.mkdir(path.dirname(LISTS_FILE), { recursive: true });
+            await promises.writeFile(LISTS_FILE, JSON.stringify([]));
             return new Map();
         }
         throw error;
@@ -65,7 +64,7 @@ async function writeLists(lists) {
         name: name,
         crdt: JSON.parse(aworset.toJson())
     }));
-    await fs.writeFile(LISTS_FILE, JSON.stringify(serializableLists, null, 2));
+    await promises.writeFile(LISTS_FILE, JSON.stringify(serializableLists, null, 2));
 }
 
 // GET all lists
@@ -173,9 +172,10 @@ app.delete('/api/lists/:id', async (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`Server running on http://localhost:${PORT}`);
-    open(`http://localhost:8081/multiple_lists.html?port=${PORT}`);
+    const open = (await import('open')).default;
+    open(`http://localhost:8080/multiple_lists.html?port=${PORT}`);
 });
 
 // Graceful shutdown

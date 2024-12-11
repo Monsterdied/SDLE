@@ -43,4 +43,4 @@ class PNCounter{
     
 
 }
-export {PNCounter};
+module.exports = {PNCounter};
