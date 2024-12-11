@@ -11,6 +11,7 @@ const app = express();
 const coordinatorAddress= process.argv[2];
 const coordinatorPort = process.argv[3];
 const PORT = process.argv[4] || 3000;
+const port_of_the_server = process.argv[5] || 8081;
 if (!coordinatorAddress || !coordinatorPort || PORT ===3000) {
     console.error('Usage: node server.js <coordinatorAddress> <coordinatorPort> [<port>]');
     process.exit(1);
@@ -175,7 +176,7 @@ app.delete('/api/lists/:id', async (req, res) => {
 app.listen(PORT, async () => {
     console.log(`Server running on http://localhost:${PORT}`);
     const open = (await import('open')).default;
-    open(`http://localhost:8080/multiple_lists.html?port=${PORT}`);
+    open(`http://localhost:${port_of_the_server}/multiple_lists.html?port=${PORT}`);
 });
 
 // Graceful shutdown

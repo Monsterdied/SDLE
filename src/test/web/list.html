@@ -172,7 +172,7 @@
         syncCartBtn.addEventListener('click', async () => {
             console.log("id",listId.trim());
             try {
-                const response = await fetch('http://localhost:3000/api/list', {
+                const response = await fetch(`http://localhost:${port}/api/list`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -206,7 +206,7 @@
 
             try {
                 // Fetch list details
-                const listResponse = await fetch(`http://localhost:3000/api/list?id=${listId}`);
+                const listResponse = await fetch(`http://localhost:${port}/api/list?id=${listId}`);
                 const listData = await listResponse.json();
                 console.log("MERSA",listData);
 
