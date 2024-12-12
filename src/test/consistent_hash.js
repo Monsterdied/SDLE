@@ -123,6 +123,11 @@ class ConsistentHash {
                 const node = this.ring.get(h);
                 if(nodeId !== node.split(':')[0]){
                     result.push(node);
+                }else{
+                    //if one of the next nodes is the same as the vnode, we skip it 
+                    // because none of the other will send theres replicas to me
+                    // knowing that we are the same node 
+                    return result;
                 } 
             }
             if (result.length >= lenghtPreference) break;
@@ -133,7 +138,9 @@ class ConsistentHash {
                 const node = this.ring.get(h);
                 if(nodeId !== node.split(':')[0]){
                     result.push(node);
-                } 
+                }else{
+                    return result;
+                }
                 if (result.length >= lenghtPreference) break;
             }
         }
