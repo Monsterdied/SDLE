@@ -27,7 +27,7 @@ async function main() {
     for (let i = initialStorageNodePort; i < initialStorageNodePort + numberOfNodes*3; i=i+3) {
         const storageNode = new StorageNode(i, coordinatorPort, publishPort,debug);
         debug = false
-        storageNode.initialize();
+        await storageNode.initialize();
         console.log(`Storage Node ${i} started`);
         await new Promise(resolve => setTimeout(resolve, 200));
     }
