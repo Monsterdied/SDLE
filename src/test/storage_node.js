@@ -524,31 +524,34 @@ class StorageNode {
         }*/
         // Implement data rebalancing logic here
     }
+    async requestToVirtualNode(vnode){
+        const request = new zmq.Request();
+        const nodeid = vnode.toString().split(':')[0];
+        request.receiveTimeout = 300;
+        request.sendTimeout = 300;
+        const address = `tcp://localhost:${parseInt(nodeid) + 1}`;
+        request.connect(address);
+        try{
+            await request.send(['GET_VNODE', vnode]);
+            console.log('Sent borrowed storage to replica',address);
+            const [type,token,...packet] = await request.receive();
+            console.log(`Received Dealer response ${this.nodePort}`);
+            console.log('Received Dealer response',packet[0].toString());
+            if(packet[0].toString() === 'OK'){
+                return true;
+            }else{
+                return false;
+            }
+        }catch(err){
+            request.close();
+            console.log('Failed to receive response Borrowed:', err);
+            return false;
+        }
+    }
     async getStorageFromOtherNodes(){
         const vnodes = this.consistentHash.getVirtualNodes(this.nodePort);
         for (const vnode of vnodes) {
-            const nodesPredecessores = await this.consistentHash.getNextXNodes(vnode,this.nreplicas);
-            if(this.debug === true){
-                let error = 0;
-                console.log('Nodes Predecessores:',nodesPredecessores);
-                if(this.consistentHash.nodes.size >= 4){
-                    console.log('Nodes SortedHash:',this.consistentHash.sortedHashes[0]);
-                    console.log('Nodes ReversedHash:',this.consistentHash.reversedHashes[this.consistentHash.reversedHashes.length-1]);
 
-                    const test = await this.consistentHash.getPreferrencedList(nodesPredecessores[2],3);
-                    console.log('Nodes childs:',test);
-                    for(let i = 0; i < 3; i++){
-                        const j = 2 - i;
-                        if(test[j] !== nodesPredecessores[i]){
-                            console.log('Error2:',this.consistentHash.getHash(nodesPredecessores[i]));
-                            console.log('Error2:',this.consistentHash.getHash(test[j]));
-                            error += 1;
-                            //console.log('Error:',this.consistentHash.reversedHashes,this.consistentHash.sortedHashes);
-                            console.log(`ERROR ${error}`);
-                        }
-                    }
-            }
-            }
         }
     }
 }

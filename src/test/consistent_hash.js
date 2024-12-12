@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { Mutex } = require('async-mutex');
 //TODO
 class ConsistentHash {
-    constructor(nreplicas,replicas = 2) {
+    constructor(nreplicas,replicas = 1000) {
         this.replicas = replicas;
         this.nreplicas = nreplicas;
         this.ring = new Map();

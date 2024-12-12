@@ -1,7 +1,7 @@
 [
   [
     "key4",
-    "{\"id\":\"replica1\",\"counter\":0,\"listname\":\"Shopping List\",\"items\":[{\"name\":\"apple\",\"counter\":{\"pCounters\":{\"replica1\":5},\"nCounters\":{\"replica1\":0}}},{\"name\":\"banana\",\"counter\":{\"pCounters\":{\"replica1\":4},\"nCounters\":{\"replica1\":0}}},{\"name\":\"orange\",\"counter\":{\"pCounters\":{\"replica1\":3},\"nCounters\":{\"replica1\":0}}}],\"removed_items\":[]}"
+    "{\"id\":\"replica1\",\"counter\":0,\"listname\":\"Shopping List\",\"items\":[{\"name\":\"apple\",\"counter\":{\"pCounters\":{\"replica1\":7},\"nCounters\":{\"replica1\":0}}},{\"name\":\"banana\",\"counter\":{\"pCounters\":{\"replica1\":4},\"nCounters\":{\"replica1\":0}}},{\"name\":\"orange\",\"counter\":{\"pCounters\":{\"replica1\":3},\"nCounters\":{\"replica1\":0}}}],\"removed_items\":[]}"
   ],
   [
     "key9",
@@ -13,7 +13,7 @@
   ],
   [
     "key28",
-    "{\"id\":\"replica1\",\"counter\":0,\"listname\":\"Shopping List\",\"items\":[{\"name\":\"apple\",\"counter\":{\"pCounters\":{\"replica1\":9},\"nCounters\":{\"replica1\":0}}},{\"name\":\"banana\",\"counter\":{\"pCounters\":{\"replica1\":4},\"nCounters\":{\"replica1\":0}}},{\"name\":\"orange\",\"counter\":{\"pCounters\":{\"replica1\":3},\"nCounters\":{\"replica1\":0}}}],\"removed_items\":[]}"
+    "{\"id\":\"replica1\",\"counter\":0,\"listname\":\"Shopping List\",\"items\":[{\"name\":\"apple\",\"counter\":{\"pCounters\":{\"replica1\":5},\"nCounters\":{\"replica1\":0}}},{\"name\":\"banana\",\"counter\":{\"pCounters\":{\"replica1\":3},\"nCounters\":{\"replica1\":0}}},{\"name\":\"orange\",\"counter\":{\"pCounters\":{\"replica1\":3},\"nCounters\":{\"replica1\":0}}}],\"removed_items\":[]}"
   ],
   [
     "key5",
@@ -37,7 +37,7 @@
   ],
   [
     "key27",
-    "{\"id\":\"replica1\",\"counter\":0,\"listname\":\"Shopping List\",\"items\":[{\"name\":\"apple\",\"counter\":{\"pCounters\":{\"replica1\":1},\"nCounters\":{\"replica1\":0}}},{\"name\":\"banana\",\"counter\":{\"pCounters\":{\"replica1\":5},\"nCounters\":{\"replica1\":0}}},{\"name\":\"orange\",\"counter\":{\"pCounters\":{\"replica1\":3},\"nCounters\":{\"replica1\":0}}}],\"removed_items\":[]}"
+    "{\"id\":\"replica1\",\"counter\":0,\"listname\":\"Shopping List\",\"items\":[{\"name\":\"apple\",\"counter\":{\"pCounters\":{\"replica1\":7},\"nCounters\":{\"replica1\":0}}},{\"name\":\"banana\",\"counter\":{\"pCounters\":{\"replica1\":3},\"nCounters\":{\"replica1\":0}}},{\"name\":\"orange\",\"counter\":{\"pCounters\":{\"replica1\":3},\"nCounters\":{\"replica1\":0}}}],\"removed_items\":[]}"
   ],
   [
     "key21",
@@ -46,5 +46,17 @@
   [
     "key24",
     "{\"id\":\"replica1\",\"counter\":0,\"listname\":\"Shopping List\",\"items\":[{\"name\":\"apple\",\"counter\":{\"pCounters\":{\"replica1\":3},\"nCounters\":{\"replica1\":0}}},{\"name\":\"banana\",\"counter\":{\"pCounters\":{\"replica1\":5},\"nCounters\":{\"replica1\":0}}},{\"name\":\"orange\",\"counter\":{\"pCounters\":{\"replica1\":3},\"nCounters\":{\"replica1\":0}}}],\"removed_items\":[]}"
+  ],
+  [
+    "key15",
+    "{\"id\":\"replica1\",\"counter\":0,\"listname\":\"Shopping List\",\"items\":[{\"name\":\"apple\",\"counter\":{\"pCounters\":{\"replica1\":9},\"nCounters\":{\"replica1\":0}}},{\"name\":\"banana\",\"counter\":{\"pCounters\":{\"replica1\":2},\"nCounters\":{\"replica1\":0}}},{\"name\":\"orange\",\"counter\":{\"pCounters\":{\"replica1\":3},\"nCounters\":{\"replica1\":0}}}],\"removed_items\":[]}"
+  ],
+  [
+    "key25",
+    "{\"id\":\"replica1\",\"counter\":0,\"listname\":\"Shopping List\",\"items\":[{\"name\":\"apple\",\"counter\":{\"pCounters\":{\"replica1\":5},\"nCounters\":{\"replica1\":0}}},{\"name\":\"banana\",\"counter\":{\"pCounters\":{\"replica1\":2},\"nCounters\":{\"replica1\":0}}},{\"name\":\"orange\",\"counter\":{\"pCounters\":{\"replica1\":3},\"nCounters\":{\"replica1\":0}}}],\"removed_items\":[]}"
+  ],
+  [
+    "key12",
+    "{\"id\":\"replica1\",\"counter\":0,\"listname\":\"Shopping List\",\"items\":[{\"name\":\"apple\",\"counter\":{\"pCounters\":{\"replica1\":9},\"nCounters\":{\"replica1\":0}}},{\"name\":\"banana\",\"counter\":{\"pCounters\":{\"replica1\":1},\"nCounters\":{\"replica1\":0}}},{\"name\":\"orange\",\"counter\":{\"pCounters\":{\"replica1\":3},\"nCounters\":{\"replica1\":0}}}],\"removed_items\":[]}"
   ]
 ]
