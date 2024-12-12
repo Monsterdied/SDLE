@@ -99,6 +99,9 @@
                 console.log(response);
 
                 const result = await response.json();
+
+                loadExistingLists();
+
                 // Clear input
                 newListNameInput.value = '';
                     

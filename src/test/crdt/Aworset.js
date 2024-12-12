@@ -38,6 +38,9 @@ class Aworset{
         if(this.items.has(item_name)){
             this.removed_items.add(item_name)
         }
+        //set the counter value to 0
+        let value = this.items.get(item_name).counter.getValue();
+        this.items.get(item_name).counter.decrement(value);
     }
     // Get the quantity of an item
     getQuantity(item_name){
@@ -66,6 +69,7 @@ class Aworset{
     toFormattedJson() {
         const items = Array.from(this.items.entries()).map(([name, item]) => ({
             name: name,
+            id_of_latest_addition: item.counter.id_of_latest_addition,
             quantity: item.counter.getValue()
         }));
 
@@ -83,13 +87,32 @@ class Aworset{
         this.items = new Map(formatted.items.map(item => [
             item.name,
             {
-                counter: new PNCounter(this.id, item.quantity)
+                counter: new PNCounter(this.id,item.id_of_latest_addition , item.quantity)
             }
         ]));
     }
 
     // Merge two Aworsets
     merge(other) {
+
+        // Merge removals
+        //console.log(other.removedItems);
+        for (const removedItem of other.removed_items) {
+            //Check if the latest addition is made by the same id
+            if(this.items.has(removedItem)){
+                if (this.items.get(removedItem).counter.id_of_latest_addition!== other.items.get(removedItem).counter.id_of_latest_addition) {
+                    continue;
+                }
+                //check if the id added some amount after the removal
+                let id_of_latest_addition = this.items.get(removedItem).counter.id_of_latest_addition;
+                if ( this.items.get(removedItem).counter.pCounters.get(id_of_latest_addition)> other.items.get(removedItem).counter.pCounters.get(id_of_latest_addition)){
+                    continue;
+
+                }
+            }
+
+            this.removed_items.add(removedItem);
+        }
 
         // Merge items
         for (const [itemName, otherItem] of other.items) {
@@ -103,11 +126,6 @@ class Aworset{
             this.items.get(itemName).counter.merge(otherItem.counter);
         }
 
-        // Merge removals
-        //console.log(other.removedItems);
-        for (const removedItem of other.removed_items) {
-            this.removed_items.add(removedItem);
-        }
     }
 
     // Serialize the Aworset to a JSON string
@@ -120,6 +138,7 @@ class Aworset{
             items: Array.from(this.items.entries()).map(([name, item]) => ({
                 name: name,
                 counter: {
+                    id_of_latest_addition: item.counter.id_of_latest_addition,
                     pCounters: item.counter.pCounters,
                     nCounters: item.counter.nCounters
                 }
@@ -148,6 +167,7 @@ class Aworset{
             const pnCounter = new PNCounter(aworset.id);
             pnCounter.pCounters = itemData.counter.pCounters;
             pnCounter.nCounters = itemData.counter.nCounters;
+            pnCounter.id_of_latest_addition = itemData.counter.id_of_latest_addition;
             
             aworset.items.set(itemData.name, {
                 counter: pnCounter
