@@ -100,9 +100,10 @@ class StorageNode {
                     firstCrdt.merge(secondCrdt);
                     //console.log('Merged:',firstCrdt.toJson());
                     this.storage.set(key,value);
-                    this.saveMapToJson(this.storage,`./storage/${this.nodePort}.json`);
+                    await this.saveMapToJson(this.storage,`./storage/${this.nodePort}.json`);
                 }else{
                     this.storage.set(key,value);
+                    await this.saveMapToJson(this.storage,`./storage/${this.nodePort}.json`);
                 }
                 this.storageMutex.release();
                 return removeNodes;
@@ -158,7 +159,8 @@ class StorageNode {
           console.log(`Map loaded from ${filename}`);
           return loadedMap;
         } catch (error) {
-          console.error('Error loading JSON to map:', error);
+            console.log('dindt find JSON to map: NodeId:',this.nodePort);
+            //console.error('Error loading JSON to map:', error);
           return new Map();
         }
       }
@@ -506,6 +508,12 @@ class StorageNode {
                 setCopy.delete(key);
             }
         }
+        if(this.debug === true && this.consistentHash.nodes.size > this.nreplicas*2){
+            this.getStorageFromOtherNodes()
+        }
+
+        //delete this
+        //this.getStorageFromOtherNodes();
         //dont worry about remove for now
         /*
         if(setCopy.size > 0){
@@ -515,6 +523,33 @@ class StorageNode {
             }
         }*/
         // Implement data rebalancing logic here
+    }
+    async getStorageFromOtherNodes(){
+        const vnodes = this.consistentHash.getVirtualNodes(this.nodePort);
+        for (const vnode of vnodes) {
+            const nodesPredecessores = await this.consistentHash.getNextXNodes(vnode,this.nreplicas);
+            if(this.debug === true){
+                let error = 0;
+                console.log('Nodes Predecessores:',nodesPredecessores);
+                if(this.consistentHash.nodes.size >= 4){
+                    console.log('Nodes SortedHash:',this.consistentHash.sortedHashes[0]);
+                    console.log('Nodes ReversedHash:',this.consistentHash.reversedHashes[this.consistentHash.reversedHashes.length-1]);
+
+                    const test = await this.consistentHash.getPreferrencedList(nodesPredecessores[2],3);
+                    console.log('Nodes childs:',test);
+                    for(let i = 0; i < 3; i++){
+                        const j = 2 - i;
+                        if(test[j] !== nodesPredecessores[i]){
+                            console.log('Error2:',this.consistentHash.getHash(nodesPredecessores[i]));
+                            console.log('Error2:',this.consistentHash.getHash(test[j]));
+                            error += 1;
+                            //console.log('Error:',this.consistentHash.reversedHashes,this.consistentHash.sortedHashes);
+                            console.log(`ERROR ${error}`);
+                        }
+                    }
+            }
+            }
+        }
     }
 }
 module.exports = { StorageNode };

@@ -2,13 +2,14 @@ const crypto = require('crypto');
 const { Mutex } = require('async-mutex');
 //TODO
 class ConsistentHash {
-    constructor(nreplicas,replicas = 100) {
+    constructor(nreplicas,replicas = 2) {
         this.replicas = replicas;
         this.nreplicas = nreplicas;
         this.ring = new Map();
         this.nodes = new Set();
         this.lock = new Mutex();
         this.sortedHashes = [];
+        this.reversedHashes = [];
     }
     async addNode(node) {
         await this.lock.acquire();
@@ -19,6 +20,7 @@ class ConsistentHash {
             this.ring.set(hash, `${node}:${i}`);
         }
         this.sortedHashes = Array.from(this.ring.keys()).sort();
+        this.reversedHashes = Array.from(this.ring.keys()).sort().reverse();
         this.lock.release();
     }
 
@@ -31,6 +33,7 @@ class ConsistentHash {
             this.ring.delete(hash);
         }
         this.sortedHashes = Array.from(this.ring.keys()).sort();
+        this.reversedHashes = Array.from(this.ring.keys()).sort().reverse();
         this.lock.release();
     }
     async getNextNode(key){
@@ -55,50 +58,21 @@ class ConsistentHash {
         }
     }
 
-    async getNode(key) {
+    async getPreferrencedList(key,lenghtPreference =this.nreplicas*2,reversed=false) {
         if (this.ring.size === 0) return null;
+        let list;
+        if(reversed===true){
+            list = this.reversedHashes;
+        }else{
+            list = this.sortedHashes;
+        }
         await this.lock.acquire();
         const hash = this.getHash(key);
         //sortedHashes.forEach((h) => console.log(h));
         // Find the first hash >= our key's hash
         const result = [];
         const nodeParents = [];
-        for (const h of this.sortedHashes) {
-            if (h >= hash){
-                const node = this.ring.get(h);
-                if(!nodeParents.includes(node.split(':')[0])){
-                    //console.log("TEST",node.split(':')[0]);
-                    //console.log("Test",nodeParents);
-                    nodeParents.push(node.split(':')[0]);
-                    result.push(node);
-                } 
-            }
-            if (result.length >= this.nreplicas*2) break;
-        }
-        // complete the circle in the hash ring
-        if (result.length < this.nreplicas*2){
-            for (const h of sortedHashes) {
-                const node = this.ring.get(h);
-                if(!nodeParents.includes(node.split(':')[0])){
-                    nodeParents.push(node.split(':')[0]);
-                    result.push(node);
-                } 
-                if (result.length >= this.nreplicas*2) break;
-            }
-        }
-        console.log(result);
-        this.lock.release();
-        return result;
-    }
-    async getPreferrencedList(key,lenghtPreference =this.nreplicas*2) {
-        if (this.ring.size === 0) return null;
-        await this.lock.acquire();
-        const hash = this.getHash(key);
-        //sortedHashes.forEach((h) => console.log(h));
-        // Find the first hash >= our key's hash
-        const result = [];
-        const nodeParents = [];
-        for (const h of this.sortedHashes) {
+        for (const h of list) {
             if (h >= hash){
                 const node = this.ring.get(h);
                 if(!nodeParents.includes(node.split(':')[0])){
@@ -110,7 +84,7 @@ class ConsistentHash {
         }
         // complete the circle in the hash ring
         if (result.length < lenghtPreference){
-            for (const h of this.sortedHashes) {
+            for (const h of list) {
                 const node = this.ring.get(h);
                 if(!nodeParents.includes(node.split(':')[0])){
                     nodeParents.push(node.split(':')[0]);
@@ -119,7 +93,6 @@ class ConsistentHash {
                 if (result.length >= lenghtPreference) break;
             }
         }
-        console.log(result);
         this.lock.release();
         return result;
     }
@@ -130,49 +103,41 @@ class ConsistentHash {
     getVirtualNodes(key){
         const virtualNodes = [];
         for (let i = 0; i < this.replicas; i++) {
-            virtualNodes.push(this.getHash(`${key}:${i}`));
+            virtualNodes.push(`${key}:${i}`);
         }
         return virtualNodes;
     }
 
     async getNextXNodes(vnode,nNodes){
         if (this.ring.size === 0) return null;
+        const lenghtPreference = nNodes;
         await this.lock.acquire();
+        const list = this.reversedHashes;
         const hash = this.getHash(vnode);
         //sortedHashes.forEach((h) => console.log(h));
         // Find the first hash >= our key's hash
-        let counter = 0;
-        for (const h of this.sortedHashes) {
-            counter++;
-            if (h === hash){
-                break;
-            }
-        }
+        const nodeId = vnode.split(':')[0];
         const result = [];
-        const nodePredecessor = Set();
-        for (let i = counter; i >=0; i--) {
-            if(!nodePredecessor.includes(this.sortedHashes[i].split(':')[0])){
-                result.push(this.sortedHashes[i]);
-                nodePredecessor.add(this.sortedHashes[i].split(':')[0])
+        for (const h of list) {
+            if (h >= hash){
+                const node = this.ring.get(h);
+                if(nodeId !== node.split(':')[0]){
+                    result.push(node);
+                } 
             }
-            if(nNodes <= result.length){
-                await this.lock.acquire();
-                return result;
-            }          
+            if (result.length >= lenghtPreference) break;
         }
-        if(result.length < nNodes){
-            for(let i = this.sortedHashes.lenght; i >= 0 ; i--){
-                if(!nodePredecessor.includes(this.sortedHashes[i].split(':')[0])){
-                    result.push(this.sortedHashes[i]);
-                    nodePredecessor.add(this.sortedHashes[i].split(':')[0])
-                }
-                if(nNodes <= result.length){
-                    this.lock.release();
-                    return result;
-                }    
+        // complete the circle in the hash ring
+        if (result.length < lenghtPreference){
+            for (const h of list) {
+                const node = this.ring.get(h);
+                if(nodeId !== node.split(':')[0]){
+                    result.push(node);
+                } 
+                if (result.length >= lenghtPreference) break;
             }
         }
-
+        this.lock.release();
         return result;
     }
 }

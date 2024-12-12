@@ -28,6 +28,9 @@ class Coordinator {
         // Start heartbeat monitor
         this.monitorRequests();
         
+        this.monitorClients();
+    }
+    async monitorClients(){
         while (true) {
             const [identity, type, ...rest] = await this.router.receive();
             this.handleRequests(identity, type, rest);
@@ -49,7 +52,7 @@ class Coordinator {
             case 'GET_CLIENT':
                 const [token,key] = rest;
                 console.log('CORDINATOR Request:', key.toString(), token.toString());
-                const portsIds = await this.consistentHash.getNode(key.toString());
+                const portsIds = await this.consistentHash.getPreferrencedList(key.toString());
                 const identity1 = this.node_id_to_identifiers.get(portsIds[0].split(':')[0]);
                 console.log('CORDINATOR Response:', identity.toString());
                 //await this.router.send( [identity1,'GET',token, key]);
@@ -60,7 +63,7 @@ class Coordinator {
             case 'PUT_CLIENT':
                 const [token1,key1,crdt] = rest;
                 console.log('CORDINATOR Request:', key1.toString(), token1.toString());
-                const portsIds1 = await this.consistentHash.getNode(key1.toString());
+                const portsIds1 = await this.consistentHash.getPreferrencedList(key1.toString());
                 console.log('CORDINATOR Node chossed:', portsIds1.toString());
                 console.log('CORDINATOR Node chossed:', JSON.stringify(Object.fromEntries(this.node_id_to_identifiers)));
                 const identity2 = this.node_id_to_identifiers.get(portsIds1[0].split(':')[0]);

@@ -15,11 +15,11 @@ async function main() {
     let publishPort = 5556;
 
     let initialStorageNodePort = 5557;
-    let numberOfNodes = 19;
+    let numberOfNodes = 30;
 
     // Start Coordinator
     const coordinator = new Coordinator(coordinatorPort, publishPort);
-    coordinator.initialize();
+    await coordinator.initialize();
     console.log('Coordinator started');
 
     // Start Storage Node
