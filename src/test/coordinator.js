@@ -15,6 +15,7 @@ class Coordinator {
         this.nodeHeartbeats = new Map();
         this.node_id_to_identifiers = new Map();
         this.tokens_to_request = new Map();
+        this.tokenMutex = new mutex.Mutex();
         this.register_lock = new mutex.Mutex();
         this.getTimeout = 1000;
         this.putTimeout = 1300;
@@ -50,9 +51,11 @@ class Coordinator {
                 console.log('CORDINATOR Request:', key.toString(), token.toString());
                 const portsIds = await this.consistentHash.getNode(key.toString());
                 const identity1 = this.node_id_to_identifiers.get(portsIds[0].split(':')[0]);
-                console.log('CORDINATOR Response:', identity1.toString());
-                await this.router.send( [identity1,'GET',token, key]);
-                this.tokens_to_request.set(token.toString(), [Date.now(),identity,portsIds,'GET',key]);
+                console.log('CORDINATOR Response:', identity.toString());
+                //await this.router.send( [identity1,'GET',token, key]);
+                await this.tokenMutex.acquire();
+                this.tokens_to_request.set(token.toString(), [Date.now(),identity,'GET',JSON.stringify(portsIds),key]);
+                this.tokenMutex.release();
                 break;
             case 'PUT_CLIENT':
                 const [token1,key1,crdt] = rest;
@@ -66,24 +69,30 @@ class Coordinator {
                 await this.router.send( [identity2,'PUT', token1,key1,crdt,JSON.stringify(portsIds1),replicas_Needed_To_Akc,JSON.stringify(FailedToWrite)]);
                 console.log('CORDINATOR Request:', identity2);
                 console.log('CORDINATOR Date:', Date.now());
+                await this.tokenMutex.acquire();
                 this.tokens_to_request.set(token1.toString(), [Date.now(),identity,'PUT',key1,crdt,portsIds1,replicas_Needed_To_Akc,FailedToWrite]);
+                this.tokenMutex.release();
                 //console.log('CORDINATOR Response:', response1.toString());
                 break;
             //reply from node
             case 'GET_RESPONSE':
                 const [token2, ...value] = rest;
+                await this.tokenMutex.acquire();
                 if(this.tokens_to_request.get(token2.toString())){
                     const [time,identity_Return,...rest] = this.tokens_to_request.get(token2.toString());
-                    console.log('CORDINATOR GET_REPONSE:', identity_Return);
-                    this.tokens_to_request.delete(token2.toString());
-                    console.log('CORDINATOR GET_REPONSE:', value.toString());
+                    console.log('CORDINATOR GET_REPONSE sending to:', this.tokens_to_request.toString());
+                    console.log('CORDINATOR GET_REPONSE:', identity_Return.toString());
+                    console.log('CORDINATOR GET_REPONSE:', identity.toString());
                     await this.router.send([identity_Return, 'RESPONSE', value]);
+                    this.tokens_to_request.delete(token2.toString());
                 }else{
                     console.log('CORDINATOR GET_REPONSE TIMEOUT:', token2.toString());
                 }
+                this.tokenMutex.release();
                 break;
             case 'PUT_RESPONSE':
                 const [token3, ...value3] = rest;
+                await this.tokenMutex.acquire();
                 console.log('CORDINATOR PUT_REPONSE:', token3.toString(),value3.toString());
                 if(this.tokens_to_request.get(token3.toString())){
                     const [time,identity_Return3,...rest] = this.tokens_to_request.get(token3.toString());
@@ -93,6 +102,7 @@ class Coordinator {
                 }else{
                     console.log('CORDINATOR GET_REPONSE TIMEOUT:', token3.toString(), ...value3.toString());
                 }
+                this.tokenMutex.release();
                 break;
         }
     }
@@ -111,24 +121,46 @@ class Coordinator {
     }
 
     monitorRequests() {
-        setInterval(() => {
+        setInterval(async() => {
             const now = Date.now();
             //console.log('CORDINATOR CHECK TOKENS:', Array.from(this.tokens_to_request));
+            const tokensToBeDeleted = [];
+            await this.tokenMutex.acquire();
             for (const [token, [lastBeat,identity,type,...rest]] of this.tokens_to_request) {
+                console.log('CORDINATOR CHECK TOKENS:', token.toString(), lastBeat.toString(),identity.toString(),type.toString(),rest.toString());
                 switch (type) {
                     case 'GET':
                         if (now - lastBeat > this.getTimeout) { // 1 seconds timeout
-                            console.log('CORDINATOR GET TIMEOUT:', identity.toString());
+                            const list = JSON.parse(rest[0].toString());
+                            const key = rest[1].toString();
+                            if(list.length > 1){
+                                list.shift();
+                                const identity1 = this.node_id_to_identifiers.get(list[0].split(':')[0]);
+                                console.log('CORDINATOR GET TIMEOUT:', identity1.toString());
+                                console.log('CORDINATOR GET TIMEOUT:', token.toString());
+                                this.router.send([identity1, 'GET',token, key]);
+                                this.tokens_to_request.set(token.toString(), [Date.now(),identity,...rest]);
+                            }else{
+                                console.log('CORDINATOR GET TIMEOUT: Deleted');
+                                this.router.send([identity, 'FAILED']);
+                                tokensToBeDeleted.push(token);
+                            }
                         }
+                        console.log('CORDINATOR CHECK TOKENS:', token.toString(), lastBeat.toString(),identity.toString(),type.toString(),rest.toString());
                     break;
                     case 'PUT':
                         if (now - lastBeat > this.putTimeout) { // 1.2 seconds timeout
+                            this.router.send([identity, 'FAILED']);
                             console.log('CORDINATOR PUT TIMEOUT:', identity.toString());
                         }
                     break;
                 }
             }
-        }, 500); // Check every 0.5 seconds
+            for (const token of tokensToBeDeleted) {
+                this.tokens_to_request.delete(token);
+            }
+            this.tokenMutex.release();
+        }, 1000); // Check every 0.5 seconds
     }
 }
 module.exports = { Coordinator };

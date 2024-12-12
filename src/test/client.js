@@ -17,16 +17,6 @@ class Client {
         await this.dealer.connect(`tcp://${this.coordinatorAddress}:${this.coordinatorPort}`);
     }
 
-    runServer() {
-        const serverProcess = spawn('node', ['server.js'], {
-            stdio: 'inherit', // Inherit stdio to see server output in the console
-            cwd: __dirname // Set the current working directory to the directory of client.js
-        });
-
-        serverProcess.on('close', (code) => {
-            console.log(`server.js process exited with code ${code}`);
-        });
-    }
 
     get_token(){
         this.mutex.acquire();
