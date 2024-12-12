@@ -139,6 +139,40 @@ async function tomatinho(){
     }
     // Start Client
 }
+
+
+async function testClientOnly() {
+    const client = new Client('localhost', 5555, 0);
+    await client.initialize();
+    console.log('Client started');
+
+
+    // Perform SET operation
+    console.log('CLIENT SET key:', `key${id}`);
+    let shoppingList = new Aworset('replica1', 'Shopping List');
+    const valuesTest = { apple: Math.floor(Math.random() * 10) + 1, banana: Math.floor(Math.random() * 5) + 1, orange: 3 };
+    shoppingList.addItem('apple', valuesTest.apple);
+    shoppingList.addItem('banana', valuesTest.banana);
+    shoppingList.addItem('orange', valuesTest.orange);
+
+    setStatus = await client.set(`key${id}`, shoppingList.toJson());
+    assert.strictEqual(setStatus, 'FAIL', `SET operation failed for key${id}`);
+    console.log('Test Set Operation Passed');
+
+    // Perform GET operation
+    console.log('CLIENT GET key:', `key${id}`);
+    const crdt = await client.get(`key${id}`);
+    console.log('CLIENT GET value:', crdt);
+
+    assert.strictEqual(crdt, 'FAIL', `GET operation failed for key${id}`);
+    console.log('Test Get Operation Passed');
+
+
+    process.exit(0);
+}
+
+//testClientOnly();
+
 main()
 //tomatinho()
 //const clientWeb = new ClientWeb('localhost', 5555, 5569);
