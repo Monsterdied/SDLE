@@ -145,6 +145,10 @@ function runAworsetTests() {
     list4.merge(list3);
     console.log("Concurrent apple quantity:", list4.getItems());
     console.log("Concurrent apple quantity:", list4.toJson());
+    list3.merge(list4);
+    list4.removeItem('apple');
+    list3.merge(list4);
+    console.log("Concurrent apple quantity:", list3.getItems());
 
 
 
