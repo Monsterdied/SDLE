@@ -10,15 +10,67 @@
           "name": "bread",
           "counter": {
             "pCounters": {
-              "5978e4fa-a467-4310-b2a3-1120785379de": 9
+              "5978e4fa-a467-4310-b2a3-1120785379de": 1578
             },
             "nCounters": {
-              "5978e4fa-a467-4310-b2a3-1120785379de": 0
+              "5978e4fa-a467-4310-b2a3-1120785379de": 1576
+            }
+          }
+        },
+        {
+          "name": "potato",
+          "counter": {
+            "id_of_latest_addition": "5978e4fa-a467-4310-b2a3-1120785379de",
+            "pCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 105
+            },
+            "nCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 96
+            }
+          }
+        },
+        {
+          "name": "POTATO",
+          "counter": {
+            "id_of_latest_addition": "5978e4fa-a467-4310-b2a3-1120785379de",
+            "pCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 51
+            },
+            "nCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 51
+            }
+          }
+        },
+        {
+          "name": "get",
+          "counter": {
+            "id_of_latest_addition": "5978e4fa-a467-4310-b2a3-1120785379de",
+            "pCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 17
+            },
+            "nCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 17
+            }
+          }
+        },
+        {
+          "name": "potatoes",
+          "counter": {
+            "id_of_latest_addition": "5978e4fa-a467-4310-b2a3-1120785379de",
+            "pCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 1
+            },
+            "nCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 1
             }
           }
         }
       ],
-      "removed_items": []
+      "removed_items": [
+        "get",
+        "POTATO",
+        "potatoes"
+      ]
     }
   },
   {
@@ -97,7 +149,20 @@
       "id": "8940dcaa-0367-44af-b0de-9154f05fde8a3333",
       "counter": 0,
       "listname": "deg",
-      "items": [],
+      "items": [
+        {
+          "name": "potato",
+          "counter": {
+            "id_of_latest_addition": "8940dcaa-0367-44af-b0de-9154f05fde8a3333",
+            "pCounters": {
+              "8940dcaa-0367-44af-b0de-9154f05fde8a3333": 1
+            },
+            "nCounters": {
+              "8940dcaa-0367-44af-b0de-9154f05fde8a3333": 0
+            }
+          }
+        }
+      ],
       "removed_items": []
     }
   }

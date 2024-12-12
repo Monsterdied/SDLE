@@ -6,10 +6,11 @@ const path = require( 'path');
 const  cors = require( 'cors');
 const { Aworset } = require('../crdt/Aworset.js');
 const {Client} = require( '../client.js')
+const asyncMutex = require('async-mutex').Mutex;
 
 const app = express();
-const coordinatorAddress= process.argv[2];
-const coordinatorPort = process.argv[3];
+const coordinatorAddress= process.argv[2] || 'localhost';
+const coordinatorPort = process.argv[3] || 5555;
 const PORT = process.argv[4] || 3000;
 const port_of_the_server = process.argv[5] || 8081;
 if (!coordinatorAddress || !coordinatorPort || PORT ===3000) {
@@ -20,7 +21,7 @@ console.log("coordinatorAddress", coordinatorAddress);
 console.log("coordinatorPort", coordinatorPort);
 console.log("PORT", PORT);
 let client = new Client(coordinatorAddress, coordinatorPort, PORT);
-
+let mutex = new asyncMutex();
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
@@ -46,7 +47,7 @@ async function getallshoppingLists() {
             return [list.name, aworset];
         }));
         
-        console.log('Lists loaded:', Map_of_shopping_lists);
+        //console.log('Lists loaded:', Map_of_shopping_lists);
         return Map_of_shopping_lists;
     } catch (error) {
         if (error.code === 'ENOENT') {
@@ -83,18 +84,33 @@ app.get('/api/list', async (req, res) => {
     try {
         let name = req.query.id;
         name = name.replace(/^['"]+|['"]+$/g, ''); // Remove leading and trailing quotes
-        const lists = await getallshoppingLists();
-        const list = lists.get(name);
+        let list= Map_of_shopping_lists.get(name);
         console.log("name", name);
         console.log("ll", list);
-        
-        if (!list) {
+        console.log("fucked", name);
+        let cloud = await client.get(name);
+        console.log("thisshit",(cloud));
+        console.log("fucked", name);
+
+
+        if (!list && !cloud) {
             console.log('List not found');
             return res.status(404).json({ error: 'List not found' });
         }
+        if(!list){
+            res.json(cloud);
+        }else if (cloud==='FAIL'){
+            res.json(list.toFormattedJson());
+        }else{
+            let list_ll = Aworset.fromJson(cloud);
+            console.log("list", list_ll.toJson());
+            console.log("listd", list.toJson());
+            list.merge(list_ll);
+            res.json(list.toFormattedJson());
+        }
+
         
         console.log("stringy", list.toFormattedJson());
-        res.json(list.toFormattedJson());
     } catch (error) {
         console.error('Error retrieving list:', error);
         res.status(500).json({ error: 'Failed to retrieve list' });
@@ -112,7 +128,6 @@ app.post('/api/lists', async (req, res) => {
         console.log("aworset", aworset.getItems());
 
         let map = await getallshoppingLists();
-        
         map.set(name, aworset);
         console.log("map", map.get('Bobs List'));
         console.log("mapdeg", map.get(name));
@@ -128,7 +143,7 @@ app.post('/api/lists', async (req, res) => {
 // POST update a list (add/update items)
 app.post('/api/list', async (req, res) => {
     try {
-        const { listId, items } = req.body;
+        const { listId, items , removed_items} = req.body;
 
         const lists = await getallshoppingLists();
         console.log("listsdeg", lists);
@@ -143,10 +158,25 @@ app.post('/api/list', async (req, res) => {
         
         // Update list
         items.forEach(item => {
-            listIndex.addItem(item.name, item.quantity);
+            let delta=item.quantity-listIndex.getQuantity(item.name)
+            if (delta>0){
+                listIndex.addItem(item.name, delta);
+            }else if (delta<0){
+                listIndex.removeQuantity(item.name, -delta);
+            }
         });
-        
+
+        removed_items.forEach(item => { 
+            console.log("degg",listIndex, item)
+            listIndex.removeItem(item);
+        });
+
         await writeLists(lists);
+        console.log("listIndex", listIndex);
+        console.log("fucked", listId);
+        const result =await client.set(listId, listIndex.toJson());
+        console.log("fucked", result);
+        console.log("fucked", listId);
         
         res.json({ message: 'List updated successfully' });
     } catch (error) {
@@ -174,6 +204,7 @@ app.delete('/api/lists/:id', async (req, res) => {
 
 // Start server
 app.listen(PORT, async () => {
+    await client.initialize();
     console.log(`Server running on http://localhost:${PORT}`);
     const open = (await import('open')).default;
     open(`http://localhost:${port_of_the_server}/multiple_lists.html?port=${PORT}`);

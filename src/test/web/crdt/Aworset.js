@@ -67,11 +67,13 @@ class Aworset{
     }
 
     toFormattedJson() {
-        const items = Array.from(this.items.entries()).map(([name, item]) => ({
+        let items = Array.from(this.items.entries()).map(([name, item]) => ({
             name: name,
             id_of_latest_addition: item.counter.id_of_latest_addition,
             quantity: item.counter.getValue()
         }));
+        // remove items in removed list
+        items = items.filter(item => !this.removed_items.has(item.name));
 
         const formatted = {
             listname: this.listname,
@@ -105,13 +107,26 @@ class Aworset{
                 }
                 //check if the id added some amount after the removal
                 let id_of_latest_addition = this.items.get(removedItem).counter.id_of_latest_addition;
-                if ( this.items.get(removedItem).counter.pCounters.get(id_of_latest_addition)> other.items.get(removedItem).counter.pCounters.get(id_of_latest_addition)){
-                    continue;
+                if (  id_of_latest_addition in this.items.get(removedItem).counter.pCounters  ){
+                    if(  id_of_latest_addition  in other.items.get(removedItem).counter.pCounters ){
+                        if ( this.items.get(removedItem).counter.pCounters[id_of_latest_addition]> other.items.get(removedItem).counter.pCounters[id_of_latest_addition]){
+                            console.log("The item was added after the removal");
+                            continue;
+                            
+    
+                        }
+                    }else{
+                        if (this.items.get(removedItem).counter.pCounters[id_of_latest_addition]>0 ){
+                            console.log("The item was added after the removal");
+                            continue;
+                        }
 
+                    }
                 }
             }
 
             this.removed_items.add(removedItem);
+            console.log("The item was removed");
         }
 
         // Merge items
