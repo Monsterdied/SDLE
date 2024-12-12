@@ -10,6 +10,7 @@ const fs = require('fs').promises;
 class StorageNode {
     constructor(nodeId,coordinatorPort, publishPort,debug = false) {
         this.nodePort = nodeId;
+        //sockets
         this.dealer = new zmq.Dealer();
         this.subscriber = new zmq.Subscriber();
         this.storageBorrowed = new Map();
@@ -20,12 +21,14 @@ class StorageNode {
         this.routerSocket= new zmq.Router();
         this.nodesMap = new Map();
         this.tokenToCallback = new Map();
+        //create mutex for each type of operation
         this.routerMutex = new Mutex();
         this.storageMutex = new Mutex();
         this.dealerMutex = new Mutex();
         this.borrowedStorageMutex = new Mutex();
         this.callBackMutex = new Mutex();
         this.entityMutex = new Mutex();
+        //test variables
         this.test = 0;
         this.noise = 1;
         this.nreplicas;
@@ -36,26 +39,33 @@ class StorageNode {
 
     async initialize() {
         // Connect to coordinator
-        //await this.dealer.bind(`tcp://localhost:${this.nodePort}`);
+        //set the high water mark to 0 to remove the high water mark
         this.routerSocket.receiveHighWaterMark = 0;
+        // routerSocket is the socket that will receive messages from the replicas
         await this.routerSocket.bind(`tcp://localhost:${this.nodePort + 1}`);
-        //await this.dealerSocket.bind(`tcp://localhost:${this.nodePort + 2}`);
-        await this.dealer.connect(`tcp://localhost:${this.coordinatorPort}`);
-        await this.subscriber.connect(`tcp://localhost:${this.publishPort}`);
+        // dealer is the socket that will interact with the cordinator
+        this.dealer.connect(`tcp://localhost:${this.coordinatorPort}`);
+        this.subscriber.connect(`tcp://localhost:${this.publishPort}`);
         
         this.storage = await this.loadJsonToMap(`./storage/${this.nodePort}.json`);
         // Subscribe to topology updates
         this.subscriber.subscribe('TOPOLOGY_UPDATE');
         // Register with coordinator
         await this.dealer.send(['REGISTER', `${this.nodePort}`]);
+        //Start the paralel operations
+        // handle topology updates of nodes
         this.handleTopologyUpdates();
+        // Start listening to packets from the coordinator
         this.receivePackets();
+        //Start listening to packets in the Router
         this.listenToReplicasRouter();
+        //Start monitoring borrowed storage and try to reach the replicas
         this.monitorBorrowedStorage();
         // Start heartbeat
         
 
     }
+    // handle get requests Returns the value or if it doesnt have the value returns false
     async getFromStorage(key){
         console.log('GET request received',JSON.stringify(Object.fromEntries(this.storage)));
         await this.storageMutex.acquire();
@@ -121,6 +131,7 @@ class StorageNode {
             removeNodes.shift();
         return removeNodes;
     }
+    // Save the map to a JSON file
     async saveMapToJson(map, filename) {
         try {
           // Convert Map to an array of key-value pairs
@@ -134,6 +145,7 @@ class StorageNode {
           console.error('Error saving map to JSON:', error);
         }
       }
+    // Load a JSON file into a Map
       async loadJsonToMap(filename) {
         try {
           // Read the JSON file
@@ -191,6 +203,20 @@ class StorageNode {
     hasDuplicates(arr) {
         return arr.length !== new Set(arr).size;
     }
+    /**
+     * Handle a write request from the coordinator.
+     * @param {boolean || buffer} entity - whether to send the response to the coordinator or not
+     * @param {string} token - the token associated with the request
+     * @param {Array} packet - the packet received from the coordinator
+     * 
+     * This method will handle the write request by writing the data to the storage,
+     * and then sending a request to a replica to write the data.
+     * If the write is successful, it will send a response back to the coordinator.
+     * If the write fails, it will send a response back to the coordinator with the error.
+     * 
+     * The method will also handle the case where the node is not responsible for the key
+     * by sending the request to the next node in the preference list.
+     */
     async propagateWrite(entity,token,packet) {
         token = token.toString();
         const preferenceList = JSON.parse(packet[2].toString());
@@ -225,6 +251,20 @@ class StorageNode {
             this.backTrackWriteReplica(token,key,'OK');
         }   
     }
+    /**
+     * @description
+     * This function sends a PUT request to a replica in the preference list.
+     * It will keep sending the request until the replica responds with an OK,
+     * or until the number of tries is reached, in which case it will backtrack
+     * the write.
+     * @param {string} token - The token of the request.
+     * @param {string} key - The key of the request.
+     * @param {string} crdt - The CRDT of the request.
+     * @param {array} preferenceList - The preference list of nodes.
+     * @param {number} replicasAproved - The number of replicas that have approved the write.
+     * @param {array} replicasFailedToWrite - The list of replicas that have failed to write.
+     * @return {Promise<void>} - A promise that resolves when the request is complete.
+     */
     async createRequestToReplica(token,key,crdt,preferenceList,replicasAproved,replicasFailedToWrite){
         let tries = 0;
         const resendTries = 0;
@@ -269,7 +309,14 @@ class StorageNode {
         
 
     }
+    
 
+    /**
+     * Listen for a response from a replica after sending a write request
+     * @param {zmq.Request} request - the request socket
+     * @param {string} address - the address of the replica
+     * @returns {Promise<boolean>} true if the response was received, false if an error occurred
+     */
     async listenToRequestResponse(request,address) {
         //console.log(`Waiting for packets Dealer... ${this.nodePort}`);
         console.log('Waiting for packets Request packet');
@@ -291,6 +338,13 @@ class StorageNode {
             return false;
         }
     }
+    /**
+     * Handle a response from a replica after sending a write request
+     * @param {string} token - the token associated with the request
+     * @param {string} key - the key associated with the request
+     * @param {string} value - the result of the request
+     * @returns {Promise<void>}
+     */
     async backTrackWriteReplica(token,key,value){
         //console.log('Backtracking to coordinator',this.nodePort);
         //console.log('Token:',this.tokenToCallback);
@@ -318,6 +372,11 @@ class StorageNode {
             this.dealerMutex.release();
         }
     }
+    /**
+     * Listens for packets from other nodes and the coordinator
+     * This is the main loop for receiving packets from the router
+     * @returns {Promise<void>}
+     */
     async listenToReplicasRouter() {
         while (true) {
             const [entity,filler,type,token,...packet] = await this.routerSocket.receive();
@@ -385,6 +444,12 @@ class StorageNode {
             }
         }, 3000); // Check every 10 seconds
     }
+/**
+ * Sends a borrowed storage request to a specified replica.
+ * @param {string} nodeid - The ID of the node to send the request to.
+ * @param {Object} values - The values to be sent to the replica.
+ * @returns {Promise<boolean>} - Returns true if the replica responds with 'OK', otherwise false if an error occurs or the response is not 'OK'.
+ */
     async sendBorrowedToReplica(nodeid,values){
         const request = new zmq.Request();
         request.receiveTimeout = 300;
@@ -409,6 +474,19 @@ class StorageNode {
         }
     }
 
+/**
+ * Updates the topology of the storage node by modifying the consistent hash ring.
+ * 
+ * @param {number} nreplicas - The number of replicas for each key in the system.
+ * @param {Object} nodes - An object containing the nodes in the system.
+ * 
+ * This function updates the number of replicas and modifies the consistent hash
+ * ring by adding new nodes that are not currently in the hash ring. Nodes that
+ * are already present are retained and not added again. The function also resets
+ * the number of replicas for the node. Additionally, there is a provision for
+ * removing nodes, though it is not implemented currently. The function aims to
+ * ensure that the consistent hash ring reflects the current topology of the system.
+ */
     async handleTopologyUpdate(nreplicas,nodes) {
         //console.log(`Node ${this.nodePort} received topology update:`);
         this.nreplicas = Number(nreplicas.toString());
