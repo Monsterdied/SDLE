@@ -70,10 +70,10 @@ class StorageNode {
     }
     // handle get requests Returns the value or if it doesnt have the value returns false
     async getFromStorage(key){
-        console.log('GET request received',JSON.stringify(Object.fromEntries(this.storage)));
+        //console.log('GET request received',JSON.stringify(Object.fromEntries(this.storage)));
         await this.storageMutex.acquire();
         let value = this.storage.get(key);
-        console.log('GET request received Ok',key,value);
+        //console.log('GET request received Ok',key,value);
         if(value === undefined){
             //TODO THIS IS WRONG
             value = this.storageBorrowed.get(key);
@@ -85,30 +85,34 @@ class StorageNode {
         return value;
     }
     //checks if it is responsible for the key, if it is adds it to the storage, if not returns the next node to send the request to
+    async addtoStorageForce(key,value){
+        await this.storageMutex.acquire();
+        //check if the key is already in the storage
+        if(this.storage.get(key) !== undefined){
+            const crdtString = this.storage.get(key);
+            const firstCrdt = Aworset.fromJson(crdtString);
+            const secondCrdt = Aworset.fromJson(value);
+            //console.log('First:',firstCrdt.toJson());
+            //console.log('Second:',secondCrdt.toJson());
+            firstCrdt.merge(secondCrdt);
+            //console.log('Merged:',firstCrdt.toJson());
+            this.storage.set(key,value);
+            await this.saveMapToJson(this.storage,`./storage/${this.nodePort}.json`);
+        }else{
+            this.storage.set(key,value);
+            await this.saveMapToJson(this.storage,`./storage/${this.nodePort}.json`);
+        }
+        this.storageMutex.release();
+    }
+
     async addToStorage(key,value,removeNodes){
         //convert virtual nodes to nodesIdS
         const vnodes = await this.consistentHash.getPreferrencedList(key,this.nreplicas);
-        console.log('Vnodes:',this.nreplicas,vnodes,this.nodePort,'key',key,'value',value);
+        //console.log('Vnodes:',this.nreplicas,vnodes,this.nodePort,'key',key,'value',value);
         for (const vnode of vnodes) {
             const node = vnode.split(':')[0];
             if(node === this.nodePort.toString()){
-                await this.storageMutex.acquire();
-                //check if the key is already in the storage
-                if(this.storage.get(key) !== undefined){
-                    const crdtString = this.storage.get(key);
-                    const firstCrdt = Aworset.fromJson(crdtString);
-                    const secondCrdt = Aworset.fromJson(value);
-                    //console.log('First:',firstCrdt.toJson());
-                    //console.log('Second:',secondCrdt.toJson());
-                    firstCrdt.merge(secondCrdt);
-                    //console.log('Merged:',firstCrdt.toJson());
-                    this.storage.set(key,value);
-                    await this.saveMapToJson(this.storage,`./storage/${this.nodePort}.json`);
-                }else{
-                    this.storage.set(key,value);
-                    await this.saveMapToJson(this.storage,`./storage/${this.nodePort}.json`);
-                }
-                this.storageMutex.release();
+                await this.addtoStorageForce(key,value);
                 return removeNodes;
             }
         }
@@ -125,7 +129,6 @@ class StorageNode {
             const newlist = {};
             newlist[key] = value;
             this.storageBorrowed.set(removeNodes[0],newlist);
-            console.log('TEST1', newlist);
         }else{
             const arr =this.storageBorrowed.get(removeNodes[0]);
             arr[key] = value;
@@ -331,7 +334,7 @@ class StorageNode {
         switch (type.toString()) {
             case 'PUT_RESPONSE':
                 //console.log(`Received Dealer response ${this.nodePort}`);
-                console.log('Received Dealer response',packet[0].toString());
+                //console.log('Received Dealer response',packet[0].toString());
                 await this.backTrackWriteReplica(token,packet[1].toString(),packet[0].toString());//prob await here
                 break;
             }
@@ -405,13 +408,15 @@ class StorageNode {
                     }
                     break;
                 case 'GET_VNODE':
-                    const results = this.getListsWithinRange(token,packet[0].toString());
+                    const results = await this.getListsWithinRange(token.toString(),packet[0].toString());
                     if(results.length !== 0){
-                        console.log('geting the results NOT NULL',results);
+                        console.log('geting the results NOT NULL');
+                    }else{
+                        console.log('geting the results NULL',results);
                     }
                     await this.routerMutex.acquire();
-                    this.routerSocket.send([entity,'','GET_VNODE_RESPONSE',JSON.stringify(results)]);
-                    console.log('Sent response to get vnode',results);
+                    this.routerSocket.send([entity,'','GET_VNODE_RESPONSE',JSON.stringify(Object.fromEntries(results))]);
+                    console.log('Sent response to get vnode',JSON.stringify(results));
                     this.routerMutex.release();
                     break;
                 default:
@@ -512,8 +517,6 @@ class StorageNode {
             this.consistentHash = new ConsistentHash(this.nreplicas);
         }
         const setCopy = new Set(this.consistentHash.nodes);
-        console.log('Nodes number:',this.nreplicas);
-        console.log('Nodes test1:',nodes);
         for (const key in nodes) {
             const node = nodes[key];
             if(!this.consistentHash.nodes.has(node)){
@@ -555,12 +558,13 @@ class StorageNode {
             console.log('Sent Request Update to replica',address);
             const [type,...packet] = await request.receive();
             //console.log(`Received Request Update response ${this.nodePort} ${packet}`);
+            //console.log(`Received Request Update response ${this.nodePort} ${packet}`);
             const list = JSON.parse(packet[0].toString());
             //console.log('Received Request Update response',JSON.parse(packet[0].toString()));
             for (const [key,value] of Object.entries(list)) {
                 console.log('Discarding:',key);
-                console.log('value:',value);
-                this.addToStorage(key,value,[]);
+                //console.log('value:',value);
+                await this.addtoStorageForce(key,value);
             }
             if(list){
                 return true;
@@ -573,11 +577,11 @@ class StorageNode {
             return false;
         }
     }
-    getListsWithinRange(start,end){
+    async getListsWithinRange(start,end){
         console.log('Getting list within range',start,end);
         const startHash = this.consistentHash.getHash(start);
         const endHash = this.consistentHash.getHash(end);
-        this.storageMutex.acquire();
+        await this.storageMutex.acquire();
         const storage = new Map(this.storage);
         this.storageMutex.release();
         const keys = Array.from(storage.keys());
@@ -585,12 +589,25 @@ class StorageNode {
             keys.map(value => [this.consistentHash.getHash(value),value])
         );    
         const sortedHashes = Array.from(hashMap.keys()).sort();
-        const result = [];
+        const result = new Map();
+        //console.log('Sorted Hashes:',sortedHashes);
         for (const hash of sortedHashes) {
-            if (hash >= startHash && hash <= endHash) {
-                result.push(this.getFromStorage(hashMap.get(hash)));
+            //console.log('Test5:',hash>=startHash,hash<=endHash);
+            let key = hashMap.get(hash);
+            if(startHash >= endHash){
+                if ((hash >= startHash) || (hash <= endHash)) {
+                    //console.log('Hash:',hash);
+                    result.set(key,await this.getFromStorage(key));
+                }
+            }else{
+                if (hash >= startHash && hash <= endHash) {
+                    //console.log('Hash:',hash);
+                    result.set(key,await this.getFromStorage(key));
+                }
             }
+
         }
+        //console.log('Result1:',result);
         return result;
     }
     async getStorageFromOtherNodes(){
@@ -599,10 +616,11 @@ class StorageNode {
         console.log('Received nodes:',nreplicas.toString(),liste.toString());
         await this.handleTopologyUpdate(Number(nreplicas.toString()),JSON.parse(liste.toString()));
         console.log('Handled Topology updates:',this.consistentHash.nodes.size);
-        if(this.consistentHash.nodes.size < this.nreplicas + 1){
-            console.log('No nodes to get storage from',this.nodePort);
+        if(this.consistentHash.nodes.size < this.nreplicas){
+            console.log('No nodes to get storage from 1',this.consistentHash.nodes.size);
             return;
         }
+        console.log('nodes to get storage from 2',this.consistentHash.nodes.size);
         const vnodes = this.consistentHash.getVirtualNodes(this.nodePort);
         console.log('Received nodes3:');
         const toDelete = [];
