@@ -8,8 +8,10 @@ const assert = require('assert');
 const { Console } = require('console');
 const { threadId } = require('worker_threads');
 const { Aworset } = require("./crdt/Aworset.js");
+const {Mutex} = require('async-mutex');
 let passed = 0
 const passedTests = [];
+const mutex = new Mutex();
 async function main() {
     let coordinatorPort = 5555;
     let publishPort = 5556;
@@ -92,9 +94,11 @@ async function test(id){
     }
     //assert.strictEqual(getValue.toString(), `value${id}`, `GET operation failed for key${id}`);
     console.log(`Test passed${id}`);
+    await mutex.acquire();
     passed++;
     //console.log(`Passed n ${passed}`);
     passedTests.push(id);
+    mutex.release();
     console.log(`Number : ${passed} Passed tests ${passedTests}`);
 
 }

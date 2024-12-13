@@ -508,7 +508,7 @@ class StorageNode {
                 setCopy.delete(key);
             }
         }
-        if(this.debug === true && this.consistentHash.nodes.size > this.nreplicas*2){
+        if(this.debug === true && this.consistentHash.nodes.size > this.nreplicas){
             this.getStorageFromOtherNodes()
         }
 
@@ -550,8 +550,10 @@ class StorageNode {
     }
     async getStorageFromOtherNodes(){
         const vnodes = this.consistentHash.getVirtualNodes(this.nodePort);
+        if(this.debug === true)
         for (const vnode of vnodes) {
-
+            const vnodes1 = await  this.consistentHash.getNextXNodes(vnode,3);
+            console.log('Requesting vnode:',vnodes1,"Port",this.nodePort);
         }
     }
 }

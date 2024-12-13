@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { Mutex } = require('async-mutex');
 //TODO
 class ConsistentHash {
-    constructor(nreplicas,replicas = 1000) {
+    constructor(nreplicas,replicas = 100) {
         this.replicas = replicas;
         this.nreplicas = nreplicas;
         this.ring = new Map();
@@ -118,29 +118,51 @@ class ConsistentHash {
         // Find the first hash >= our key's hash
         const nodeId = vnode.split(':')[0];
         const result = [];
+        let i = 0;
         for (const h of list) {
             if (h >= hash){
                 const node = this.ring.get(h);
                 if(nodeId !== node.split(':')[0]){
-                    result.push(node);
+                    let object = {};
+                    if(i === this.reversedHashes.length-1){
+                        object.start = node;
+                        object.end = this.ring.get(this.reversedHashes[0]);
+                        result.push(object);
+                    }else{
+                        object.start = node;
+                        object.end = this.ring.get(this.reversedHashes[i+1]);
+                        result.push(object);
+                    }
                 }else{
                     //if one of the next nodes is the same as the vnode, we skip it 
                     // because none of the other will send theres replicas to me
                     // knowing that we are the same node 
                     return result;
                 } 
+                i++;
             }
             if (result.length >= lenghtPreference) break;
         }
         // complete the circle in the hash ring
+        i=0;
         if (result.length < lenghtPreference){
             for (const h of list) {
                 const node = this.ring.get(h);
                 if(nodeId !== node.split(':')[0]){
-                    result.push(node);
+                    let object = {};
+                    if(i === this.reversedHashes.length-1){
+                        object.start = node;
+                        object.end = this.ring.get(this.reversedHashes[0]);
+                        result.push(object);
+                    }else{
+                        object.start = node;
+                        object.end = this.ring.get(this.reversedHashes[i+1]);
+                        result.push(object);
+                    }
                 }else{
                     return result;
                 }
+                i++;
                 if (result.length >= lenghtPreference) break;
             }
         }
