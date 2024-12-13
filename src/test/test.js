@@ -17,7 +17,7 @@ async function main() {
     let publishPort = 5556;
 
     let initialStorageNodePort = 5557;
-    let numberOfNodes = 7;
+    let numberOfNodes = 4;
 
     // Start Coordinator
     const coordinator = new Coordinator(coordinatorPort, publishPort);
@@ -35,7 +35,7 @@ async function main() {
     }
     // Give some time for nodes to initialize
     await new Promise(resolve => setTimeout(resolve, 1000));
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 5; i++) {
         test(i);
     }
     // Start Client

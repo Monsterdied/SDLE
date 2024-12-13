@@ -574,6 +574,7 @@ class StorageNode {
         }
     }
     getListsWithinRange(start,end){
+        console.log('Getting list within range',start,end);
         const startHash = this.consistentHash.getHash(start);
         const endHash = this.consistentHash.getHash(end);
         this.storageMutex.acquire();
@@ -605,7 +606,7 @@ class StorageNode {
         const vnodes = this.consistentHash.getVirtualNodes(this.nodePort);
         console.log('Received nodes3:');
         const toDelete = [];
-        /*while(vnodes.length > 0){
+        while(vnodes.length > 0){
             for (const vnode of vnodes) {
                 const requests = await  this.consistentHash.getNextXNodes(vnode,3);
                 for(const request of requests){
@@ -620,7 +621,7 @@ class StorageNode {
             for (const vnode of toDelete) {
                 vnodes.splice(vnodes.indexOf(vnode),1);
             }
-        }*/
+        }
         
     }
 }
