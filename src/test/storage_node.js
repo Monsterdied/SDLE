@@ -35,6 +35,7 @@ class StorageNode {
         this.consistentHash;
         this.debug = debug;
         this.storage;
+        this.firstStart = true;
     }
 
     async initialize() {
@@ -49,6 +50,8 @@ class StorageNode {
         
         this.storage = await this.loadJsonToMap(`./storage/${this.nodePort}.json`);
         // Subscribe to topology updates
+        await this.getStorageFromOtherNodes();
+
         this.subscriber.subscribe('TOPOLOGY_UPDATE');
         // Register with coordinator
         await this.dealer.send(['REGISTER', `${this.nodePort}`]);
@@ -391,7 +394,7 @@ class StorageNode {
                 case 'BORROWED':
                     console.log(`Received Borrowed request in router ${this.nodePort}, ${packet}`);
                     const list = JSON.parse(token.toString());
-                    this.routerMutex.acquire();
+                    await this.routerMutex.acquire();
                     this.routerSocket.send([entity,'','UPDATE_RESPONSE',token,'OK']);
                     this.routerMutex.release();
                     //update the storage
@@ -400,6 +403,19 @@ class StorageNode {
                         console.log('value:',value);
                         this.addToStorage(key,value,[]);
                     }
+                    break;
+                case 'GET_VNODE':
+                    const results = this.getListsWithinRange(token,packet[0].toString());
+                    if(results.length !== 0){
+                        console.log('geting the results NOT NULL',results);
+                    }
+                    await this.routerMutex.acquire();
+                    this.routerSocket.send([entity,'','GET_VNODE_RESPONSE',JSON.stringify(results)]);
+                    console.log('Sent response to get vnode',results);
+                    this.routerMutex.release();
+                    break;
+                default:
+                    console.log('Received unknown packet type:',type);
                     break;
             }
         }
@@ -493,11 +509,11 @@ class StorageNode {
         //console.log(`Node ${this.nodePort} received topology update:`);
         this.nreplicas = Number(nreplicas.toString());
         if (!this.consistentHash){
-            this.consistentHash = new ConsistentHash(nreplicas);
+            this.consistentHash = new ConsistentHash(this.nreplicas);
         }
         const setCopy = new Set(this.consistentHash.nodes);
-        if(this.debug === true)
-        console.log('Nodes:',this.consistentHash.nodes);
+        console.log('Nodes number:',this.nreplicas);
+        console.log('Nodes test1:',nodes);
         for (const key in nodes) {
             const node = nodes[key];
             if(!this.consistentHash.nodes.has(node)){
@@ -508,9 +524,11 @@ class StorageNode {
                 setCopy.delete(key);
             }
         }
-        if(this.debug === true && this.consistentHash.nodes.size > this.nreplicas){
+        console.log('Nodes test2:',this.consistentHash.nodes);
+        /*if(this.firstStart === true && this.consistentHash.nodes.size > this.nreplicas){
+            this.firstStart = false;
             this.getStorageFromOtherNodes()
-        }
+        }*/
 
         //delete this
         //this.getStorageFromOtherNodes();
@@ -526,18 +544,25 @@ class StorageNode {
     }
     async requestToVirtualNode(vnode){
         const request = new zmq.Request();
-        const nodeid = vnode.toString().split(':')[0];
+        const nodeid = vnode.start.toString().split(':')[0];
         request.receiveTimeout = 300;
         request.sendTimeout = 300;
         const address = `tcp://localhost:${parseInt(nodeid) + 1}`;
         request.connect(address);
         try{
-            await request.send(['GET_VNODE', vnode]);
-            console.log('Sent borrowed storage to replica',address);
-            const [type,token,...packet] = await request.receive();
-            console.log(`Received Dealer response ${this.nodePort}`);
-            console.log('Received Dealer response',packet[0].toString());
-            if(packet[0].toString() === 'OK'){
+            console.log('Going to send Request Update to replica',address);
+            await request.send(['GET_VNODE', vnode.start, vnode.end]);
+            console.log('Sent Request Update to replica',address);
+            const [type,...packet] = await request.receive();
+            //console.log(`Received Request Update response ${this.nodePort} ${packet}`);
+            const list = JSON.parse(packet[0].toString());
+            //console.log('Received Request Update response',JSON.parse(packet[0].toString()));
+            for (const [key,value] of Object.entries(list)) {
+                console.log('Discarding:',key);
+                console.log('value:',value);
+                this.addToStorage(key,value,[]);
+            }
+            if(list){
                 return true;
             }else{
                 return false;
@@ -548,13 +573,55 @@ class StorageNode {
             return false;
         }
     }
-    async getStorageFromOtherNodes(){
-        const vnodes = this.consistentHash.getVirtualNodes(this.nodePort);
-        if(this.debug === true)
-        for (const vnode of vnodes) {
-            const vnodes1 = await  this.consistentHash.getNextXNodes(vnode,3);
-            console.log('Requesting vnode:',vnodes1,"Port",this.nodePort);
+    getListsWithinRange(start,end){
+        const startHash = this.consistentHash.getHash(start);
+        const endHash = this.consistentHash.getHash(end);
+        this.storageMutex.acquire();
+        const storage = new Map(this.storage);
+        this.storageMutex.release();
+        const keys = Array.from(storage.keys());
+        const hashMap = new Map(
+            keys.map(value => [this.consistentHash.getHash(value),value])
+        );    
+        const sortedHashes = Array.from(hashMap.keys()).sort();
+        const result = [];
+        for (const hash of sortedHashes) {
+            if (hash >= startHash && hash <= endHash) {
+                result.push(this.getFromStorage(hashMap.get(hash)));
+            }
         }
+        return result;
+    }
+    async getStorageFromOtherNodes(){
+        await this.dealer.send(['GET_NODES', `${this.nodePort}`]);
+        const [type,nreplicas ,liste] = await this.dealer.receive();
+        console.log('Received nodes:',nreplicas.toString(),liste.toString());
+        await this.handleTopologyUpdate(Number(nreplicas.toString()),JSON.parse(liste.toString()));
+        console.log('Handled Topology updates:',this.consistentHash.nodes.size);
+        if(this.consistentHash.nodes.size < this.nreplicas + 1){
+            console.log('No nodes to get storage from',this.nodePort);
+            return;
+        }
+        const vnodes = this.consistentHash.getVirtualNodes(this.nodePort);
+        console.log('Received nodes3:');
+        const toDelete = [];
+        /*while(vnodes.length > 0){
+            for (const vnode of vnodes) {
+                const requests = await  this.consistentHash.getNextXNodes(vnode,3);
+                for(const request of requests){
+                    console.log('Request3:',request);
+                    const result =await this.requestToVirtualNode(request);
+                    if(result === true){
+                        toDelete.push(request);
+                    }
+                }
+                //this.requestToVirtualNode(vnodes1[0]);
+            }
+            for (const vnode of toDelete) {
+                vnodes.splice(vnodes.indexOf(vnode),1);
+            }
+        }*/
+        
     }
 }
 module.exports = { StorageNode };

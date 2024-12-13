@@ -44,6 +44,9 @@ class Coordinator {
                 console.log('Received register from', identity.toString());
                 await this.registerNode(identity, nodeAddress.toString());
                 break;
+            case 'GET_NODES':
+                this.router.send([identity,'TOPOLOGY_UPDATE',this.nreplicas ,JSON.stringify(Array.from(this.consistentHash.nodes))]);
+                break;
             case 'HEARTBEAT':
                 console.log('Received heartbeat from', identity.toString());
                 this.updateHeartbeat(identity.toString());
@@ -55,7 +58,7 @@ class Coordinator {
                 const portsIds = await this.consistentHash.getPreferrencedList(key.toString());
                 const identity1 = this.node_id_to_identifiers.get(portsIds[0].split(':')[0]);
                 console.log('CORDINATOR Response:', identity.toString());
-                //await this.router.send( [identity1,'GET',token, key]);
+                await this.router.send( [identity1,'GET',token, key]);
                 await this.tokenMutex.acquire();
                 this.tokens_to_request.set(token.toString(), [Date.now(),identity,'GET',JSON.stringify(portsIds),key]);
                 this.tokenMutex.release();

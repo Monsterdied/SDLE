@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { Mutex } = require('async-mutex');
 //TODO
 class ConsistentHash {
-    constructor(nreplicas,replicas = 100) {
+    constructor(nreplicas,replicas = 5) {
         this.replicas = replicas;
         this.nreplicas = nreplicas;
         this.ring = new Map();
@@ -36,9 +36,8 @@ class ConsistentHash {
         this.reversedHashes = Array.from(this.ring.keys()).sort().reverse();
         this.lock.release();
     }
-    async getNextNode(key){
+    getNextNode(key){
         if (this.ring.size === 0) return null;
-        await this.lock.acquire();
         const hash = this.getHash(key);
 
         //sortedHashes.forEach((h) => console.log(h));
@@ -46,14 +45,12 @@ class ConsistentHash {
         for (const h of this.sortedHashes) {
             if (h > hash && this.ring.get(h).split(':')[0] !== key.split(':')[0]){
                 const node = this.ring.get(h);
-                this.lock.release();
                 return node;
             }
         }
         // complete the circle in the hash ring
         for (const h of this.sortedHashes) {
             const node = this.ring.get(h);
-            this.lock.release();
             return node;
         }
     }
@@ -108,7 +105,7 @@ class ConsistentHash {
         return virtualNodes;
     }
 
-    async getNextXNodes(vnode,nNodes){
+    async   getNextXNodes(vnode,nNodes){
         if (this.ring.size === 0) return null;
         const lenghtPreference = nNodes;
         await this.lock.acquire();
@@ -119,28 +116,40 @@ class ConsistentHash {
         const nodeId = vnode.split(':')[0];
         const result = [];
         let i = 0;
+        let first = false;
+        let beforeFirstNode = list[list.length-1];
         for (const h of list) {
-            if (h >= hash){
+            if (h <= hash){
                 const node = this.ring.get(h);
+                if(first === false){
+                    first = true;
+                        let object = {};
+                        object.sendTo = this.ring.get( beforeFirstNode);
+                        object.end = node;
+                        object.start = this.getNextNode(node);
+                        result.push(object);
+                }
                 if(nodeId !== node.split(':')[0]){
                     let object = {};
                     if(i === this.reversedHashes.length-1){
-                        object.start = node;
-                        object.end = this.ring.get(this.reversedHashes[0]);
+                        object.end = node;
+                        object.start = this.ring.get(this.reversedHashes[0]);
                         result.push(object);
                     }else{
-                        object.start = node;
-                        object.end = this.ring.get(this.reversedHashes[i+1]);
+                        object.end = node;
+                        object.start = this.ring.get(this.reversedHashes[i+1]);
                         result.push(object);
                     }
                 }else{
                     //if one of the next nodes is the same as the vnode, we skip it 
                     // because none of the other will send theres replicas to me
                     // knowing that we are the same node 
+                    this.lock.release();
                     return result;
                 } 
                 i++;
             }
+            beforeFirstNode = h;
             if (result.length >= lenghtPreference) break;
         }
         // complete the circle in the hash ring
@@ -160,6 +169,7 @@ class ConsistentHash {
                         result.push(object);
                     }
                 }else{
+                    this.lock.release();
                     return result;
                 }
                 i++;
