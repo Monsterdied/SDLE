@@ -240,8 +240,9 @@ class StorageNode {
         this.callBackMutex.release();
         //console.log("NODEID:",this.nodePort,"CALL BACK:", this.tokenToCallback,"Packet :",packet.toString());
         const key = packet[0].toString();
-        const crdt = packet[1].toString();
+        let crdt = packet[1].toString();
         replicasFailedToWrite = await this.addToStorage(key,crdt,replicasFailedToWrite);
+        crdt = await this.getFromStorage(key);
         console.log("Preference list:",preferenceList,"nReplicas",replicasAproved,"CRDT",crdt,"Token",token,"Entity",entity,"nodePort",this.nodePort);
         replicasAproved--;
         if (replicasAproved > 0) {
