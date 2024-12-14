@@ -46,6 +46,8 @@ class StorageNode {
         await this.routerSocket.bind(`tcp://localhost:${this.nodePort + 1}`);
         // dealer is the socket that will interact with the cordinator
         this.dealer.connect(`tcp://localhost:${this.coordinatorPort}`);
+        this.subscriber.heartbeatTimeToLive = 3000;
+        this.subscriber.heartbeatTimeout = 1000;
         this.subscriber.connect(`tcp://localhost:${this.publishPort}`);
         
         this.storage = await this.loadJsonToMap(`./storage/${this.nodePort}.json`);
@@ -175,6 +177,7 @@ class StorageNode {
         // Handle topology updates
         while (true) {
             const [topic, nreplicas,message] = await this.subscriber.receive();
+            console.log(`NODE Received packet: ${topic}`);
             if (topic.toString() === 'TOPOLOGY_UPDATE') {
                 this.handleTopologyUpdate(nreplicas,JSON.parse(message.toString()));
             }
@@ -190,12 +193,14 @@ class StorageNode {
             switch (type.toString()) {
                 case 'GET':
                         const value = await this.getFromStorage(packet[0].toString());
+                        await this.dealerMutex.acquire();
                         if(value === false){
                             console.log('GET request received',this.storage);
                             this.dealer.send(['GET_RESPONSE',token,'FAIL']);
                         }else{
                             this.dealer.send(['GET_RESPONSE',token,value ]);
                         }
+                        this.dealerMutex.release();
 
                         //console.log('GET request received',this.storage.get(packet[0].toString()));
                         //console.log('GET request received',this.storage);
@@ -391,6 +396,17 @@ class StorageNode {
             const [entity,filler,type,token,...packet] = await this.routerSocket.receive();
             console.log(`NODE Received packet Router: ${type}`);
             switch (type.toString()) {
+                case 'REGISTER_AGAIN':
+                    console.log(`Received Register request in router ${this.nodePort}`);
+                    await this.routerMutex.acquire();
+                    await this.routerSocket.send([entity,'','OK']);
+                    this.routerMutex.release();
+                    await this.dealerMutex.acquire();
+                    await this.dealer.send(['REGISTER', `${this.nodePort}`]);
+                    await this.subscriber.disconnect(`tcp://localhost:${this.publishPort}`);
+                    await this.subscriber.connect(`tcp://localhost:${this.publishPort}`);
+                    this.dealerMutex.release();
+                    break;
                 case 'PUT':
                     console.log(`Received Set request in router ${this.nodePort}`);
                     this.propagateWrite(entity,token,packet);
@@ -612,8 +628,10 @@ class StorageNode {
         return result;
     }
     async getStorageFromOtherNodes(){
+        await this.dealerMutex.acquire();
         await this.dealer.send(['GET_NODES', `${this.nodePort}`]);
         const [type,nreplicas ,liste] = await this.dealer.receive();
+        this.dealerMutex.release();
         console.log('Received nodes:',nreplicas.toString(),liste.toString());
         await this.handleTopologyUpdate(Number(nreplicas.toString()),JSON.parse(liste.toString()));
         console.log('Handled Topology updates:',this.consistentHash.nodes.size);

@@ -1,6 +1,8 @@
 const zmq = require('zeromq');
 const ConsistentHash = require('./consistent_hash');
 const mutex = require('async-mutex');
+const { Console } = require('console');
+const fs = require('fs').promises;
 
 // ============ Coordinator Node ============
 class Coordinator {
@@ -12,7 +14,6 @@ class Coordinator {
         this.publisher = new zmq.Publisher();
         this.coordinatorPort = coordinatorPort;
         this.publishPort = publishPort;
-        this.nodeHeartbeats = new Map();
         this.node_id_to_identifiers = new Map();
         this.tokens_to_request = new Map();
         this.tokenMutex = new mutex.Mutex();
@@ -20,15 +21,46 @@ class Coordinator {
         this.getTimeout = 1000;
         this.putTimeout = 1300;
     }
+    async saveNodeListTo(list) {
+        try {
+          // Convert the list to a JSON string
+          console.log('List saved1:', list);
+          const jsonString = JSON.stringify(list, null, 2);
+        console.log('List saved:', JSON.parse(jsonString));
+          // Write the JSON string to a file
+          await fs.writeFile( './storage/coordinator.json', jsonString);
+          console.log('List saved successfully');
+        } catch (error) {
+          console.error('Error saving list:', error);
+        }
+      }
+      
+      // Loading a list from a JSON file
+    async loadListFromFile() {
+        try {
+          // Read the file contents
+          const fileContents = await fs.readFile('./storage/coordinator.json', 'utf8');
+          
+          // Parse the JSON string back to a list
+          const list = JSON.parse(fileContents);
+          console.log('List loaded:', list);
+          return list;
+        } catch (error) {
+          console.log('Error loading list: Cordinator');
+          return [];
+        }
+      }
 
     async initialize() {
         await this.router.bind(`tcp://*:${this.coordinatorPort}`);
         await this.publisher.bind(`tcp://*:${this.publishPort}`);
         
-        // Start heartbeat monitor
         this.monitorRequests();
         
         this.monitorClients();
+        await this.requestToAllOldNodes();
+        //await this.publisher.send(['REGISTER_AGAIN']);
+        console.log('Waiting for nodes to register Again...');
     }
     async monitorClients(){
         while (true) {
@@ -46,10 +78,6 @@ class Coordinator {
                 break;
             case 'GET_NODES':
                 this.router.send([identity,'TOPOLOGY_UPDATE',this.nreplicas ,JSON.stringify(Array.from(this.consistentHash.nodes))]);
-                break;
-            case 'HEARTBEAT':
-                console.log('Received heartbeat from', identity.toString());
-                this.updateHeartbeat(identity.toString());
                 break;
             //Client requests
             case 'GET_CLIENT':
@@ -112,19 +140,33 @@ class Coordinator {
                 break;
         }
     }
+    async requestToAllOldNodes(){
+        const list = await this.loadListFromFile();
+        console.log('CORDINATOR Request:', list);
+        for (const address of list) {
+            console.log('CORDINATOR Request:',  address.toString());
+            const request = new zmq.Request()
+            request.connect(`tcp://localhost:${Number(address.toString()) + 1}`);
+            await request.send(['REGISTER_AGAIN']);
+            console.log(`tcp://localhost:${address.toString()}`);
+            const [response] = await request.receive();
+            console.log('CORDINATOR Request:', response.toString());
+            request.close();
+
+            //request.close();
+            console.log('CORDINATOR Request:', address.toString());
+        }
+    }
     async registerNode(identity, address) {
         this.register_lock.acquire();
         await this.consistentHash.addNode(address);
-        this.nodeHeartbeats.set(identity.toString(), Date.now());
+        await this.saveNodeListTo(Array.from(this.consistentHash.nodes));
         this.node_id_to_identifiers.set(address, identity);
         console.log('CORDINATOR Register:', Array.from(this.consistentHash.nodes));
         this.publisher.send(['TOPOLOGY_UPDATE',this.nreplicas ,JSON.stringify(Array.from(this.consistentHash.nodes))]);
         this.register_lock.release();
     }
 
-    updateHeartbeat(identity) {
-        this.nodeHeartbeats.set(identity, Date.now());
-    }
 
     monitorRequests() {
         setInterval(async() => {
