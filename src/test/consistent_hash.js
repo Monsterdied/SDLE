@@ -127,5 +127,53 @@ class ConsistentHash {
     getHash(key) {
         return crypto.createHash('sha1').update(key).digest('hex');
     }
+    getVirtualNodes(key){
+        const virtualNodes = [];
+        for (let i = 0; i < this.replicas; i++) {
+            virtualNodes.push(this.getHash(`${key}:${i}`));
+        }
+        return virtualNodes;
+    }
+
+    async getNextXNodes(vnode,nNodes){
+        if (this.ring.size === 0) return null;
+        await this.lock.acquire();
+        const hash = this.getHash(vnode);
+        //sortedHashes.forEach((h) => console.log(h));
+        // Find the first hash >= our key's hash
+        let counter = 0;
+        for (const h of this.sortedHashes) {
+            counter++;
+            if (h === hash){
+                break;
+            }
+        }
+        const result = [];
+        const nodePredecessor = Set();
+        for (let i = counter; i >=0; i--) {
+            if(!nodePredecessor.includes(this.sortedHashes[i].split(':')[0])){
+                result.push(this.sortedHashes[i]);
+                nodePredecessor.add(this.sortedHashes[i].split(':')[0])
+            }
+            if(nNodes <= result.length){
+                await this.lock.acquire();
+                return result;
+            }          
+        }
+        if(result.length < nNodes){
+            for(let i = this.sortedHashes.lenght; i >= 0 ; i--){
+                if(!nodePredecessor.includes(this.sortedHashes[i].split(':')[0])){
+                    result.push(this.sortedHashes[i]);
+                    nodePredecessor.add(this.sortedHashes[i].split(':')[0])
+                }
+                if(nNodes <= result.length){
+                    this.lock.release();
+                    return result;
+                }    
+            }
+        }
+
+        return result;
+    }
 }
 module.exports = ConsistentHash;

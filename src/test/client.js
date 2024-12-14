@@ -1,6 +1,7 @@
 const zmq = require('zeromq');
 const { Mutex } = require('async-mutex');
 const { spawn } = require('child_process');
+const { response } = require('express');
 class Client {
     constructor(coordinatorAddress, coordinatorPort,client_id) {
         this.dealer = new zmq.Dealer();
@@ -11,13 +12,30 @@ class Client {
         this.client_id =client_id;
         this.client_request_id = 0;
         this.mutex = new Mutex();
-        this.initialize();
+        this.timeout = 10000;
     }
 
     async initialize() {
         console.log(`tcp://${this.coordinatorAddress}:${this.coordinatorPort}`);
         this.dealer.connect(`tcp://${this.coordinatorAddress}:${this.coordinatorPort}`);
     }
+
+    async sendWithTimeout(request, timeout) {
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Request timed out')), timeout));
+        
+        try {
+            await this.dealer.send(request);
+            const responsePromise = this.dealer.receive();
+            const response = await Promise.race([responsePromise, timeoutPromise]);
+            return response;
+        } catch (error) {
+            console.log('Request timed out');
+            return 'Server not responding';
+        }
+    }
+
+
+           
 
 
     async get_token(){
@@ -28,25 +46,29 @@ class Client {
         this.mutex.release();
         return `${this.client_id},${this.client_request_id}`;
     }
+    
     async set(key, value) {
         const token = await this.get_token();
         await this.mutex.acquire();
-        await this.dealer.send(['PUT_CLIENT', token,key, value]);
-        //console.log('CLIENT SET key:', key);
-        const [status] = await this.dealer.receive();
+        console.log('sending set client', token);
+        const response = await this.sendWithTimeout(['PUT_CLIENT', token, key, value], this.timeout);
+        console.log('RESPONSE Received Set', response);
+        if (response === 'Server not responding') {
+            return 'FAIL';
+        }
+        const [status] = response;
         this.mutex.release();
-        //console.log('CLIENT SET status:', status.toString());
+
         return status.toString();
     }
 
     async get(key) {
-        console.log('CLIENT GET key1:', key);
         const token = await this.get_token();
-        console.log('CLIENT GET key2:', key);
-        await this.mutex.acquire();
-        await this.dealer.send(['GET_CLIENT',token, key]);
-        console.log('CLIENT GET key3:', key);
-        const [type,result] = await this.dealer.receive();
+        const response = await this.sendWithTimeout(['GET_CLIENT', token, key], this.timeout);
+        if (response === 'Server not responding') {
+            return 'FAIL';
+        }
+        const [type, result] = response;
         this.mutex.release();
         return result.toString();
     }

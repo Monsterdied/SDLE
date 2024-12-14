@@ -30,7 +30,25 @@ app.use(express.static('public')); // Serve static files from 'public' directory
 // File paths
 //const __filename = fileURLToPath(import.meta.url);
 //const __dirname = path.dirname(__filename);
-const LISTS_FILE = path.join(__dirname, 'data', 'lists.json');
+
+const LISTS_FILE = path.join(__dirname, 'data', `${PORT}lists.json`);
+
+// Ensure the file exists
+async function ensureFileExists(filePath) {
+    try {
+        await promises.access(filePath);
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            // File does not exist, create it
+            await promises.writeFile(filePath, JSON.stringify([]));
+        } else {
+            throw error;
+        }
+    }
+}
+
+// Call the function to ensure the file exists
+ensureFileExists(LISTS_FILE).catch(console.error);
 
 
 let Map_of_shopping_lists = new Map();

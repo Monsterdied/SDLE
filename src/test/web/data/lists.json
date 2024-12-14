@@ -25,7 +25,7 @@
               "5978e4fa-a467-4310-b2a3-1120785379de": 105
             },
             "nCounters": {
-              "5978e4fa-a467-4310-b2a3-1120785379de": 96
+              "5978e4fa-a467-4310-b2a3-1120785379de": 105
             }
           }
         },
@@ -64,12 +64,25 @@
               "5978e4fa-a467-4310-b2a3-1120785379de": 1
             }
           }
+        },
+        {
+          "name": "oki",
+          "counter": {
+            "id_of_latest_addition": "5978e4fa-a467-4310-b2a3-1120785379de",
+            "pCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 1
+            },
+            "nCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 0
+            }
+          }
         }
       ],
       "removed_items": [
         "get",
         "POTATO",
-        "potatoes"
+        "potatoes",
+        "potato"
       ]
     }
   },

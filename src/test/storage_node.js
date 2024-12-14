@@ -4,6 +4,7 @@ const { Mutex } = require('async-mutex');
 const ConsistentHash = require('./consistent_hash');
 const { json } = require('express');
 const { Aworset } = require("./crdt/Aworset.js");
+const fs = require('fs').promises;
 
 // ============ Storage Node ============
 class StorageNode {
@@ -11,7 +12,6 @@ class StorageNode {
         this.nodePort = nodeId;
         this.dealer = new zmq.Dealer();
         this.subscriber = new zmq.Subscriber();
-        this.storage = new Map();
         this.storageBorrowed = new Map();
         //this.coordinatorAddress = coordinatorAddress;
         this.coordinatorPort = coordinatorPort;
@@ -31,6 +31,7 @@ class StorageNode {
         this.nreplicas;
         this.consistentHash;
         this.debug = debug;
+        this.storage;
     }
 
     async initialize() {
@@ -42,6 +43,7 @@ class StorageNode {
         await this.dealer.connect(`tcp://localhost:${this.coordinatorPort}`);
         await this.subscriber.connect(`tcp://localhost:${this.publishPort}`);
         
+        this.storage = await this.loadJsonToMap(`./storage/${this.nodePort}.json`);
         // Subscribe to topology updates
         this.subscriber.subscribe('TOPOLOGY_UPDATE');
         // Register with coordinator
@@ -87,7 +89,8 @@ class StorageNode {
                     //console.log('Second:',secondCrdt.toJson());
                     firstCrdt.merge(secondCrdt);
                     //console.log('Merged:',firstCrdt.toJson());
-                    this.storage.set(key,firstCrdt.toJson());
+                    this.storage.set(key,value);
+                    this.saveMapToJson(this.storage,`./storage/${this.nodePort}.json`);
                 }else{
                     this.storage.set(key,value);
                 }
@@ -118,6 +121,35 @@ class StorageNode {
             removeNodes.shift();
         return removeNodes;
     }
+    async saveMapToJson(map, filename) {
+        try {
+          // Convert Map to an array of key-value pairs
+          const serializedMap = Array.from(map.entries());
+          
+          // Write the serialized map to a JSON file
+          await fs.writeFile(filename, JSON.stringify(serializedMap, null, 2));
+          
+          console.log(`Map saved to ${filename}`);
+        } catch (error) {
+          console.error('Error saving map to JSON:', error);
+        }
+      }
+      async loadJsonToMap(filename) {
+        try {
+          // Read the JSON file
+          const data = await fs.readFile(filename, 'utf8');
+          
+          // Parse the JSON and convert back to a Map
+          const parsedArray = JSON.parse(data);
+          const loadedMap = new Map(parsedArray);
+          
+          console.log(`Map loaded from ${filename}`);
+          return loadedMap;
+        } catch (error) {
+          console.error('Error loading JSON to map:', error);
+          return new Map();
+        }
+      }
     // Start sending heartbeat messages to the coordinator
     async handleTopologyUpdates() {
         // Handle topology updates
