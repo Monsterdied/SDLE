@@ -10,6 +10,7 @@ const fs = require('fs').promises;
 class StorageNode {
     constructor(nodeId,coordinatorPort, publishPort,debug = false) {
         this.nodePort = nodeId;
+        //sockets
         this.dealer = new zmq.Dealer();
         this.subscriber = new zmq.Subscriber();
         this.storageBorrowed = new Map();
@@ -20,47 +21,61 @@ class StorageNode {
         this.routerSocket= new zmq.Router();
         this.nodesMap = new Map();
         this.tokenToCallback = new Map();
+        //create mutex for each type of operation
         this.routerMutex = new Mutex();
         this.storageMutex = new Mutex();
         this.dealerMutex = new Mutex();
         this.borrowedStorageMutex = new Mutex();
         this.callBackMutex = new Mutex();
         this.entityMutex = new Mutex();
+        //test variables
         this.test = 0;
         this.noise = 1;
         this.nreplicas;
         this.consistentHash;
         this.debug = debug;
         this.storage;
+        this.firstStart = true;
     }
 
     async initialize() {
         // Connect to coordinator
-        //await this.dealer.bind(`tcp://localhost:${this.nodePort}`);
+        //set the high water mark to 0 to remove the high water mark
         this.routerSocket.receiveHighWaterMark = 0;
+        // routerSocket is the socket that will receive messages from the replicas
         await this.routerSocket.bind(`tcp://localhost:${this.nodePort + 1}`);
-        //await this.dealerSocket.bind(`tcp://localhost:${this.nodePort + 2}`);
-        await this.dealer.connect(`tcp://localhost:${this.coordinatorPort}`);
-        await this.subscriber.connect(`tcp://localhost:${this.publishPort}`);
+        // dealer is the socket that will interact with the cordinator
+        this.dealer.connect(`tcp://localhost:${this.coordinatorPort}`);
+        this.subscriber.heartbeatTimeToLive = 3000;
+        this.subscriber.heartbeatTimeout = 1000;
+        this.subscriber.connect(`tcp://localhost:${this.publishPort}`);
         
         this.storage = await this.loadJsonToMap(`./storage/${this.nodePort}.json`);
         // Subscribe to topology updates
+        await this.getStorageFromOtherNodes();
+
         this.subscriber.subscribe('TOPOLOGY_UPDATE');
         // Register with coordinator
         await this.dealer.send(['REGISTER', `${this.nodePort}`]);
+        //Start the paralel operations
+        // handle topology updates of nodes
         this.handleTopologyUpdates();
+        // Start listening to packets from the coordinator
         this.receivePackets();
+        //Start listening to packets in the Router
         this.listenToReplicasRouter();
+        //Start monitoring borrowed storage and try to reach the replicas
         this.monitorBorrowedStorage();
         // Start heartbeat
         
 
     }
+    // handle get requests Returns the value or if it doesnt have the value returns false
     async getFromStorage(key){
-        console.log('GET request received',JSON.stringify(Object.fromEntries(this.storage)));
+        //console.log('GET request received',JSON.stringify(Object.fromEntries(this.storage)));
         await this.storageMutex.acquire();
         let value = this.storage.get(key);
-        console.log('GET request received Ok',key,value);
+        //console.log('GET request received Ok',key,value);
         if(value === undefined){
             //TODO THIS IS WRONG
             value = this.storageBorrowed.get(key);
@@ -72,29 +87,34 @@ class StorageNode {
         return value;
     }
     //checks if it is responsible for the key, if it is adds it to the storage, if not returns the next node to send the request to
+    async addtoStorageForce(key,value){
+        await this.storageMutex.acquire();
+        //check if the key is already in the storage
+        if(this.storage.get(key) !== undefined){
+            const crdtString = this.storage.get(key);
+            const firstCrdt = Aworset.fromJson(crdtString);
+            const secondCrdt = Aworset.fromJson(value);
+            //console.log('First:',firstCrdt.toJson());
+            //console.log('Second:',secondCrdt.toJson());
+            firstCrdt.merge(secondCrdt);
+            //console.log('Merged:',firstCrdt.toJson());
+            this.storage.set(key,value);
+            await this.saveMapToJson(this.storage,`./storage/${this.nodePort}.json`);
+        }else{
+            this.storage.set(key,value);
+            await this.saveMapToJson(this.storage,`./storage/${this.nodePort}.json`);
+        }
+        this.storageMutex.release();
+    }
+
     async addToStorage(key,value,removeNodes){
         //convert virtual nodes to nodesIdS
         const vnodes = await this.consistentHash.getPreferrencedList(key,this.nreplicas);
-        console.log('Vnodes:',this.nreplicas,vnodes,this.nodePort,'key',key,'value',value);
+        //console.log('Vnodes:',this.nreplicas,vnodes,this.nodePort,'key',key,'value',value);
         for (const vnode of vnodes) {
             const node = vnode.split(':')[0];
             if(node === this.nodePort.toString()){
-                await this.storageMutex.acquire();
-                //check if the key is already in the storage
-                if(this.storage.get(key) !== undefined){
-                    const crdtString = this.storage.get(key);
-                    const firstCrdt = Aworset.fromJson(crdtString);
-                    const secondCrdt = Aworset.fromJson(value);
-                    //console.log('First:',firstCrdt.toJson());
-                    //console.log('Second:',secondCrdt.toJson());
-                    firstCrdt.merge(secondCrdt);
-                    //console.log('Merged:',firstCrdt.toJson());
-                    this.storage.set(key,value);
-                    this.saveMapToJson(this.storage,`./storage/${this.nodePort}.json`);
-                }else{
-                    this.storage.set(key,value);
-                }
-                this.storageMutex.release();
+                await this.addtoStorageForce(key,value);
                 return removeNodes;
             }
         }
@@ -111,7 +131,6 @@ class StorageNode {
             const newlist = {};
             newlist[key] = value;
             this.storageBorrowed.set(removeNodes[0],newlist);
-            console.log('TEST1', newlist);
         }else{
             const arr =this.storageBorrowed.get(removeNodes[0]);
             arr[key] = value;
@@ -121,6 +140,7 @@ class StorageNode {
             removeNodes.shift();
         return removeNodes;
     }
+    // Save the map to a JSON file
     async saveMapToJson(map, filename) {
         try {
           // Convert Map to an array of key-value pairs
@@ -134,6 +154,7 @@ class StorageNode {
           console.error('Error saving map to JSON:', error);
         }
       }
+    // Load a JSON file into a Map
       async loadJsonToMap(filename) {
         try {
           // Read the JSON file
@@ -146,7 +167,8 @@ class StorageNode {
           console.log(`Map loaded from ${filename}`);
           return loadedMap;
         } catch (error) {
-          console.error('Error loading JSON to map:', error);
+            console.log('dindt find JSON to map: NodeId:',this.nodePort);
+            //console.error('Error loading JSON to map:', error);
           return new Map();
         }
       }
@@ -155,6 +177,7 @@ class StorageNode {
         // Handle topology updates
         while (true) {
             const [topic, nreplicas,message] = await this.subscriber.receive();
+            console.log(`NODE Received packet: ${topic}`);
             if (topic.toString() === 'TOPOLOGY_UPDATE') {
                 this.handleTopologyUpdate(nreplicas,JSON.parse(message.toString()));
             }
@@ -170,12 +193,14 @@ class StorageNode {
             switch (type.toString()) {
                 case 'GET':
                         const value = await this.getFromStorage(packet[0].toString());
+                        await this.dealerMutex.acquire();
                         if(value === false){
                             console.log('GET request received',this.storage);
                             this.dealer.send(['GET_RESPONSE',token,'FAIL']);
                         }else{
                             this.dealer.send(['GET_RESPONSE',token,value ]);
                         }
+                        this.dealerMutex.release();
 
                         //console.log('GET request received',this.storage.get(packet[0].toString()));
                         //console.log('GET request received',this.storage);
@@ -191,6 +216,20 @@ class StorageNode {
     hasDuplicates(arr) {
         return arr.length !== new Set(arr).size;
     }
+    /**
+     * Handle a write request from the coordinator.
+     * @param {boolean || buffer} entity - whether to send the response to the coordinator or not
+     * @param {string} token - the token associated with the request
+     * @param {Array} packet - the packet received from the coordinator
+     * 
+     * This method will handle the write request by writing the data to the storage,
+     * and then sending a request to a replica to write the data.
+     * If the write is successful, it will send a response back to the coordinator.
+     * If the write fails, it will send a response back to the coordinator with the error.
+     * 
+     * The method will also handle the case where the node is not responsible for the key
+     * by sending the request to the next node in the preference list.
+     */
     async propagateWrite(entity,token,packet) {
         token = token.toString();
         const preferenceList = JSON.parse(packet[2].toString());
@@ -206,8 +245,9 @@ class StorageNode {
         this.callBackMutex.release();
         //console.log("NODEID:",this.nodePort,"CALL BACK:", this.tokenToCallback,"Packet :",packet.toString());
         const key = packet[0].toString();
-        const crdt = packet[1].toString();
+        let crdt = packet[1].toString();
         replicasFailedToWrite = await this.addToStorage(key,crdt,replicasFailedToWrite);
+        crdt = await this.getFromStorage(key);
         console.log("Preference list:",preferenceList,"nReplicas",replicasAproved,"CRDT",crdt,"Token",token,"Entity",entity,"nodePort",this.nodePort);
         replicasAproved--;
         if (replicasAproved > 0) {
@@ -225,6 +265,20 @@ class StorageNode {
             this.backTrackWriteReplica(token,key,'OK');
         }   
     }
+    /**
+     * @description
+     * This function sends a PUT request to a replica in the preference list.
+     * It will keep sending the request until the replica responds with an OK,
+     * or until the number of tries is reached, in which case it will backtrack
+     * the write.
+     * @param {string} token - The token of the request.
+     * @param {string} key - The key of the request.
+     * @param {string} crdt - The CRDT of the request.
+     * @param {array} preferenceList - The preference list of nodes.
+     * @param {number} replicasAproved - The number of replicas that have approved the write.
+     * @param {array} replicasFailedToWrite - The list of replicas that have failed to write.
+     * @return {Promise<void>} - A promise that resolves when the request is complete.
+     */
     async createRequestToReplica(token,key,crdt,preferenceList,replicasAproved,replicasFailedToWrite){
         let tries = 0;
         const resendTries = 0;
@@ -269,7 +323,14 @@ class StorageNode {
         
 
     }
+    
 
+    /**
+     * Listen for a response from a replica after sending a write request
+     * @param {zmq.Request} request - the request socket
+     * @param {string} address - the address of the replica
+     * @returns {Promise<boolean>} true if the response was received, false if an error occurred
+     */
     async listenToRequestResponse(request,address) {
         //console.log(`Waiting for packets Dealer... ${this.nodePort}`);
         console.log('Waiting for packets Request packet');
@@ -279,7 +340,7 @@ class StorageNode {
         switch (type.toString()) {
             case 'PUT_RESPONSE':
                 //console.log(`Received Dealer response ${this.nodePort}`);
-                console.log('Received Dealer response',packet[0].toString());
+                //console.log('Received Dealer response',packet[0].toString());
                 await this.backTrackWriteReplica(token,packet[1].toString(),packet[0].toString());//prob await here
                 break;
             }
@@ -291,6 +352,13 @@ class StorageNode {
             return false;
         }
     }
+    /**
+     * Handle a response from a replica after sending a write request
+     * @param {string} token - the token associated with the request
+     * @param {string} key - the key associated with the request
+     * @param {string} value - the result of the request
+     * @returns {Promise<void>}
+     */
     async backTrackWriteReplica(token,key,value){
         //console.log('Backtracking to coordinator',this.nodePort);
         //console.log('Token:',this.tokenToCallback);
@@ -318,11 +386,27 @@ class StorageNode {
             this.dealerMutex.release();
         }
     }
+    /**
+     * Listens for packets from other nodes and the coordinator
+     * This is the main loop for receiving packets from the router
+     * @returns {Promise<void>}
+     */
     async listenToReplicasRouter() {
         while (true) {
             const [entity,filler,type,token,...packet] = await this.routerSocket.receive();
             console.log(`NODE Received packet Router: ${type}`);
             switch (type.toString()) {
+                case 'REGISTER_AGAIN':
+                    console.log(`Received Register request in router ${this.nodePort}`);
+                    await this.routerMutex.acquire();
+                    await this.routerSocket.send([entity,'','OK']);
+                    this.routerMutex.release();
+                    await this.dealerMutex.acquire();
+                    await this.dealer.send(['REGISTER', `${this.nodePort}`]);
+                    await this.subscriber.disconnect(`tcp://localhost:${this.publishPort}`);
+                    await this.subscriber.connect(`tcp://localhost:${this.publishPort}`);
+                    this.dealerMutex.release();
+                    break;
                 case 'PUT':
                     console.log(`Received Set request in router ${this.nodePort}`);
                     this.propagateWrite(entity,token,packet);
@@ -330,7 +414,7 @@ class StorageNode {
                 case 'BORROWED':
                     console.log(`Received Borrowed request in router ${this.nodePort}, ${packet}`);
                     const list = JSON.parse(token.toString());
-                    this.routerMutex.acquire();
+                    await this.routerMutex.acquire();
                     this.routerSocket.send([entity,'','UPDATE_RESPONSE',token,'OK']);
                     this.routerMutex.release();
                     //update the storage
@@ -339,6 +423,21 @@ class StorageNode {
                         console.log('value:',value);
                         this.addToStorage(key,value,[]);
                     }
+                    break;
+                case 'GET_VNODE':
+                    const results = await this.getListsWithinRange(token.toString(),packet[0].toString());
+                    if(results.length !== 0){
+                        console.log('geting the results NOT NULL');
+                    }else{
+                        console.log('geting the results NULL',results);
+                    }
+                    await this.routerMutex.acquire();
+                    this.routerSocket.send([entity,'','GET_VNODE_RESPONSE',JSON.stringify(Object.fromEntries(results))]);
+                    console.log('Sent response to get vnode',JSON.stringify(results));
+                    this.routerMutex.release();
+                    break;
+                default:
+                    console.log('Received unknown packet type:',type);
                     break;
             }
         }
@@ -385,6 +484,12 @@ class StorageNode {
             }
         }, 3000); // Check every 10 seconds
     }
+/**
+ * Sends a borrowed storage request to a specified replica.
+ * @param {string} nodeid - The ID of the node to send the request to.
+ * @param {Object} values - The values to be sent to the replica.
+ * @returns {Promise<boolean>} - Returns true if the replica responds with 'OK', otherwise false if an error occurs or the response is not 'OK'.
+ */
     async sendBorrowedToReplica(nodeid,values){
         const request = new zmq.Request();
         request.receiveTimeout = 300;
@@ -409,15 +514,26 @@ class StorageNode {
         }
     }
 
+/**
+ * Updates the topology of the storage node by modifying the consistent hash ring.
+ * 
+ * @param {number} nreplicas - The number of replicas for each key in the system.
+ * @param {Object} nodes - An object containing the nodes in the system.
+ * 
+ * This function updates the number of replicas and modifies the consistent hash
+ * ring by adding new nodes that are not currently in the hash ring. Nodes that
+ * are already present are retained and not added again. The function also resets
+ * the number of replicas for the node. Additionally, there is a provision for
+ * removing nodes, though it is not implemented currently. The function aims to
+ * ensure that the consistent hash ring reflects the current topology of the system.
+ */
     async handleTopologyUpdate(nreplicas,nodes) {
         //console.log(`Node ${this.nodePort} received topology update:`);
         this.nreplicas = Number(nreplicas.toString());
         if (!this.consistentHash){
-            this.consistentHash = new ConsistentHash(nreplicas);
+            this.consistentHash = new ConsistentHash(this.nreplicas);
         }
         const setCopy = new Set(this.consistentHash.nodes);
-        if(this.debug === true)
-        console.log('Nodes:',this.consistentHash.nodes);
         for (const key in nodes) {
             const node = nodes[key];
             if(!this.consistentHash.nodes.has(node)){
@@ -428,6 +544,14 @@ class StorageNode {
                 setCopy.delete(key);
             }
         }
+        console.log('Nodes test2:',this.consistentHash.nodes);
+        /*if(this.firstStart === true && this.consistentHash.nodes.size > this.nreplicas){
+            this.firstStart = false;
+            this.getStorageFromOtherNodes()
+        }*/
+
+        //delete this
+        //this.getStorageFromOtherNodes();
         //dont worry about remove for now
         /*
         if(setCopy.size > 0){
@@ -437,6 +561,105 @@ class StorageNode {
             }
         }*/
         // Implement data rebalancing logic here
+    }
+    async requestToVirtualNode(vnode){
+        const request = new zmq.Request();
+        const nodeid = vnode.start.toString().split(':')[0];
+        request.receiveTimeout = 300;
+        request.sendTimeout = 300;
+        const address = `tcp://localhost:${parseInt(nodeid) + 1}`;
+        request.connect(address);
+        try{
+            console.log('Going to send Request Update to replica',address);
+            await request.send(['GET_VNODE', vnode.start, vnode.end]);
+            console.log('Sent Request Update to replica',address);
+            const [type,...packet] = await request.receive();
+            //console.log(`Received Request Update response ${this.nodePort} ${packet}`);
+            //console.log(`Received Request Update response ${this.nodePort} ${packet}`);
+            const list = JSON.parse(packet[0].toString());
+            //console.log('Received Request Update response',JSON.parse(packet[0].toString()));
+            for (const [key,value] of Object.entries(list)) {
+                console.log('Discarding:',key);
+                //console.log('value:',value);
+                await this.addtoStorageForce(key,value);
+            }
+            if(list){
+                return true;
+            }else{
+                return false;
+            }
+        }catch(err){
+            request.close();
+            console.log('Failed to receive response Borrowed:', err);
+            return false;
+        }
+    }
+    async getListsWithinRange(start,end){
+        console.log('Getting list within range',start,end);
+        const startHash = this.consistentHash.getHash(start);
+        const endHash = this.consistentHash.getHash(end);
+        await this.storageMutex.acquire();
+        const storage = new Map(this.storage);
+        this.storageMutex.release();
+        const keys = Array.from(storage.keys());
+        const hashMap = new Map(
+            keys.map(value => [this.consistentHash.getHash(value),value])
+        );    
+        const sortedHashes = Array.from(hashMap.keys()).sort();
+        const result = new Map();
+        //console.log('Sorted Hashes:',sortedHashes);
+        for (const hash of sortedHashes) {
+            //console.log('Test5:',hash>=startHash,hash<=endHash);
+            let key = hashMap.get(hash);
+            if(startHash >= endHash){
+                if ((hash >= startHash) || (hash <= endHash)) {
+                    //console.log('Hash:',hash);
+                    result.set(key,await this.getFromStorage(key));
+                }
+            }else{
+                if (hash >= startHash && hash <= endHash) {
+                    //console.log('Hash:',hash);
+                    result.set(key,await this.getFromStorage(key));
+                }
+            }
+
+        }
+        //console.log('Result1:',result);
+        return result;
+    }
+    async getStorageFromOtherNodes(){
+        await this.dealerMutex.acquire();
+        await this.dealer.send(['GET_NODES', `${this.nodePort}`]);
+        const [type,nreplicas ,liste] = await this.dealer.receive();
+        this.dealerMutex.release();
+        console.log('Received nodes:',nreplicas.toString(),liste.toString());
+        await this.handleTopologyUpdate(Number(nreplicas.toString()),JSON.parse(liste.toString()));
+        console.log('Handled Topology updates:',this.consistentHash.nodes.size);
+        if(this.consistentHash.nodes.size < this.nreplicas){
+            console.log('No nodes to get storage from 1',this.consistentHash.nodes.size);
+            return;
+        }
+        console.log('nodes to get storage from 2',this.consistentHash.nodes.size);
+        const vnodes = this.consistentHash.getVirtualNodes(this.nodePort);
+        console.log('Received nodes3:');
+        const toDelete = [];
+        while(vnodes.length > 0){
+            for (const vnode of vnodes) {
+                const requests = await  this.consistentHash.getNextXNodes(vnode,3);
+                for(const request of requests){
+                    console.log('Request3:',request);
+                    const result =await this.requestToVirtualNode(request);
+                    if(result === true){
+                        toDelete.push(request);
+                    }
+                }
+                //this.requestToVirtualNode(vnodes1[0]);
+            }
+            for (const vnode of toDelete) {
+                vnodes.splice(vnodes.indexOf(vnode),1);
+            }
+        }
+        
     }
 }
 module.exports = { StorageNode };

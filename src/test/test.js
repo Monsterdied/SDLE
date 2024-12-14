@@ -2,24 +2,23 @@ const zmq = require('zeromq');
 const { Coordinator } = require('./coordinator');
 const { StorageNode } = require('./storage_node');
 const { Client } = require('./client');
-const { ClientWeb } = require('./clientwithweb');
 const ConsistentHash = require('./consistent_hash');
 const assert = require('assert');
-const { Console } = require('console');
-const { threadId } = require('worker_threads');
 const { Aworset } = require("./crdt/Aworset.js");
+const {Mutex} = require('async-mutex');
 let passed = 0
 const passedTests = [];
+const mutex = new Mutex();
 async function main() {
     let coordinatorPort = 5555;
     let publishPort = 5556;
 
     let initialStorageNodePort = 5557;
-    let numberOfNodes = 19;
+    let numberOfNodes = 5;
 
     // Start Coordinator
     const coordinator = new Coordinator(coordinatorPort, publishPort);
-    coordinator.initialize();
+    await coordinator.initialize();
     console.log('Coordinator started');
 
     // Start Storage Node
@@ -92,9 +91,11 @@ async function test(id){
     }
     //assert.strictEqual(getValue.toString(), `value${id}`, `GET operation failed for key${id}`);
     console.log(`Test passed${id}`);
+    await mutex.acquire();
     passed++;
     //console.log(`Passed n ${passed}`);
     passedTests.push(id);
+    mutex.release();
     console.log(`Number : ${passed} Passed tests ${passedTests}`);
 
 }
