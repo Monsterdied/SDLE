@@ -105,32 +105,36 @@ app.get('/api/list', async (req, res) => {
         let list= Map_of_shopping_lists.get(name);
         console.log("name", name);
         console.log("ll", list);
-        console.log("fucked", name);
         let cloud = await client.get(name);
-        console.log("thisshit",(cloud));
-        console.log("fucked", name);
+        console.log("this",(cloud));
 
 
-        if (!list && !cloud) {
+        if (list===undefined && !cloud) {
             console.log('List not found');
             return res.status(404).json({ error: 'List not found' });
         }
-        if(!list){
-            res.json(cloud);
+        if(list===undefined){
+            let list_ll = Aworset.fromJson(cloud);
+            //add the list to the local map
+            Map_of_shopping_lists.set(name, list_ll);
+            //write the list to the file
+            await writeLists(Map_of_shopping_lists);
+            
+            res.json(list_ll.toFormattedJson());
         }else if (cloud==='FAIL'){
             res.json(list.toFormattedJson());
         }else{
             let list_ll = Aworset.fromJson(cloud);
-            console.log("list", list_ll.toJson());
-            console.log("listd", list.toJson());
+            //console.log("list", list_ll.toJson());
+            //console.log("listd", list.toJson());
             list.merge(list_ll);
             res.json(list.toFormattedJson());
         }
 
         
-        console.log("stringy", list.toFormattedJson());
+        //console.log("stringy", list.toFormattedJson());
     } catch (error) {
-        console.error('Error retrieving list:', error);
+        //console.error('Error retrieving list:', error);
         res.status(500).json({ error: 'Failed to retrieve list' });
     }
 });
@@ -139,17 +143,17 @@ app.get('/api/list', async (req, res) => {
 app.post('/api/lists', async (req, res) => {
     try {
         const { name, uniqueId } = req.body;
-        console.log("name", name);
-        console.log("uniqueId", uniqueId);
+        //console.log("name", name);
+        //console.log("uniqueId", uniqueId);
         
         let aworset = new Aworset(uniqueId, name);
-        console.log("aworset", aworset.getItems());
+        //console.log("aworset", aworset.getItems());
 
         let map = await getallshoppingLists();
         map.set(name, aworset);
-        console.log("map", map.get('Bobs List'));
-        console.log("mapdeg", map.get(name));
-        console.log("map", map);
+        //console.log("map", map.get('Bobs List'));
+        //console.log("mapdeg", map.get(name));
+        //console.log("map", map);
         await writeLists(map);
         res.status(201).json(Array.from(map.keys()));
     } catch (error) {
@@ -164,11 +168,11 @@ app.post('/api/list', async (req, res) => {
         const { listId, items , removed_items} = req.body;
 
         const lists = await getallshoppingLists();
-        console.log("listsdeg", lists);
+        //console.log("listsdeg", lists);
         const listIndex = lists.get(listId);
-        console.log("listIndex", listId);
-        console.log("listIndex", listIndex);
-        console.log("body", req.body);
+        //console.log("listIndex", listId);
+        //console.log("listIndex", listIndex);
+        //console.log("body", req.body);
         
         if (!listIndex) {
             return res.status(404).json({ error: 'List not found' });
@@ -185,16 +189,13 @@ app.post('/api/list', async (req, res) => {
         });
 
         removed_items.forEach(item => { 
-            console.log("degg",listIndex, item)
+            //console.log("degg",listIndex, item)
             listIndex.removeItem(item);
         });
 
         await writeLists(lists);
-        console.log("listIndex", listIndex);
-        console.log("fucked", listId);
+        //console.log("listIndex", listIndex);
         const result =await client.set(listId, listIndex.toJson());
-        console.log("fucked", result);
-        console.log("fucked", listId);
         
         res.json({ message: 'List updated successfully' });
     } catch (error) {

@@ -169,6 +169,8 @@
         // Sync cart (save to server)
         syncCartBtn.addEventListener('click', async () => {
             console.log("id",listId.trim());
+            console.log("deg",cartData.items);
+            console.log("removed",removed_items);
             try {
                 const response = await fetch(`http://localhost:${port}/api/list`, {
                     method: 'POST',

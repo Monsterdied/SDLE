@@ -1,5 +1,15 @@
 [
   {
+    "name": "diogo",
+    "crdt": {
+      "id": "4853e398-0ffb-4c2f-8679-02707533c7494333",
+      "counter": 0,
+      "listname": "diogo",
+      "items": [],
+      "removed_items": []
+    }
+  },
+  {
     "name": "tomas",
     "crdt": {
       "id": "4853e398-0ffb-4c2f-8679-02707533c7494333",
@@ -26,12 +36,14 @@
               "4853e398-0ffb-4c2f-8679-02707533c7494333": 6
             },
             "nCounters": {
-              "4853e398-0ffb-4c2f-8679-02707533c7494333": 0
+              "4853e398-0ffb-4c2f-8679-02707533c7494333": 6
             }
           }
         }
       ],
-      "removed_items": []
+      "removed_items": [
+        "apple"
+      ]
     }
   }
 ]
