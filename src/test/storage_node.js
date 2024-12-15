@@ -116,10 +116,8 @@ class StorageNode {
             if(node === this.nodePort.toString()){
                 if(value === 'false'){
                     return removeNodes;
-                }else{
-                    console.log('Adding to storage',value);
                 }
-                console.log('Adding to storage',key,value);
+                console.log('Adding to storage',key);
                 await this.addtoStorageForce(key,value);
                 return removeNodes;
             }
@@ -195,7 +193,7 @@ class StorageNode {
             console.log('Waiting for packets...');
             const [type,token,...packet] = await this.dealer.receive();// TODO probably expand this to make paralel requests
             // Handle the received packet
-            console.log(`NODE Received packet: ${packet}`);
+            console.log(`NODE Received packet: ${packet[0]}`);
             switch (type.toString()) {
                 case 'GET':
                         const value = await this.getFromStorage(packet[0].toString());
@@ -254,7 +252,8 @@ class StorageNode {
         let crdt = packet[1].toString();
         replicasFailedToWrite = await this.addToStorage(key,crdt,replicasFailedToWrite);
         crdt = await this.getFromStorage(key);
-        console.log("Preference list:",preferenceList,"nReplicas",replicasAproved,"CRDT",crdt,"Token",token,"Entity",entity,"nodePort",this.nodePort);
+        console.log("Preference list:",preferenceList,"nReplicas",replicasAproved,"Token",token,"Entity",entity,"nodePort",this.nodePort);
+        //console.log('CRDT:',crdt);
         replicasAproved--;
         if (replicasAproved > 0) {
             //console.log(packet[2].toString());
@@ -290,7 +289,8 @@ class StorageNode {
         const resendTries = 0;
         let BoolResponse = false;
         while(preferenceList.length > 1){
-            console.log('Sending request to replica',preferenceList[1],this.nodePort,token,key,crdt,preferenceList,replicasAproved);
+            console.log('Sending request to replica',preferenceList[1],this.nodePort,token,key,preferenceList,replicasAproved);
+            //console.log('crdt:',crdt);
             
             const request = new zmq.Request();
             request.receiveTimeout = 300*replicasAproved;//if there are more replicas to be aproved, wait longer
@@ -342,7 +342,7 @@ class StorageNode {
         console.log('Waiting for packets Request packet');
         try{
             const [type,token,...packet] = await request.receive();
-        console.log(`NODE Received packet Request: ${packet}, ${this.nodePort}, $`);
+        console.log(`NODE Received packet Request: ${packet[0]}, ${this.nodePort}, $`);
         switch (type.toString()) {
             case 'PUT_RESPONSE':
                 //console.log(`Received Dealer response ${this.nodePort}`);
@@ -426,7 +426,6 @@ class StorageNode {
                     //update the storage
                     for (const [key,value] of Object.entries(list)) {
                         console.log('Discarding:',key);
-                        console.log('value:',value);
                         this.addToStorage(key,value,[]);
                     }
                     break;
