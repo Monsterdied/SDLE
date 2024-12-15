@@ -179,15 +179,18 @@ class Coordinator {
                 switch (type) {
                     case 'GET':
                         if (now - lastBeat > this.getTimeout) { // 1 seconds timeout
-                            const list = JSON.parse(rest[0].toString());
                             const key = rest[1].toString();
+                            const list = JSON.parse(rest[0]);
                             if(list.length > 1){
                                 list.shift();
+                                rest[0] = JSON.stringify(list);
+                                console.log('CORDINATOR GET TIMEOUT:', list);
+                                console.log('CORDINATOR GET TIMEOUT:', JSON.parse(rest[0]));
                                 const identity1 = this.node_id_to_identifiers.get(list[0].split(':')[0]);
                                 console.log('CORDINATOR GET TIMEOUT:', identity1.toString());
                                 console.log('CORDINATOR GET TIMEOUT:', token.toString());
                                 this.router.send([identity1, 'GET',token, key]);
-                                this.tokens_to_request.set(token.toString(), [Date.now(),identity,...rest]);
+                                this.tokens_to_request.set(token.toString(), [Date.now(),identity,type,...rest]);
                             }else{
                                 console.log('CORDINATOR GET TIMEOUT: Deleted');
                                 this.router.send([identity, 'FAILED']);
@@ -197,9 +200,24 @@ class Coordinator {
                         console.log('CORDINATOR CHECK TOKENS:', token.toString(), lastBeat.toString(),identity.toString(),type.toString(),rest.toString());
                     break;
                     case 'PUT':
+
                         if (now - lastBeat > this.putTimeout) { // 1.2 seconds timeout
-                            this.router.send([identity, 'FAILED']);
+                            const key = rest[0];
+                            const crdt = rest[1];
+                            const portsIds = rest[2];
+                            const replicas_Needed_To_Akc = rest[3];
+                            const FailedToWrite = rest[4];
+                            if(portsIds.length >= this.nreplicas){
+                                FailedToWrite.push(portsIds.shift());
+                                console.log('CORDINATOR GET TIMEOUT:', FailedToWrite);
+                                console.log('CORDINATOR GET TIMEOUT:', replicas_Needed_To_Akc);
+                                const identity1 = this.node_id_to_identifiers.get(portsIds[0].split(':')[0]);
+                                await this.router.send( [identity1,'PUT', token,key,crdt,JSON.stringify(portsIds),replicas_Needed_To_Akc,JSON.stringify(FailedToWrite)]);
                             console.log('CORDINATOR PUT TIMEOUT:', identity.toString());
+                            }else{
+                                this.router.send([identity, 'FAILED']);
+                                tokensToBeDeleted.push(token);
+                            }
                         }
                     break;
                 }

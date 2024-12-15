@@ -20,7 +20,7 @@ async function main() {
     const coordinator = new Coordinator(coordinatorPort, publishPort);
     await coordinator.initialize();
     console.log('Coordinator started');
-
+    await new Promise(resolve => setTimeout(resolve, 1000));
     // Start Storage Node
     let debug = true
     for (let i = initialStorageNodePort; i < initialStorageNodePort + numberOfNodes*3; i=i+3) {

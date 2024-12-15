@@ -114,6 +114,12 @@ class StorageNode {
         for (const vnode of vnodes) {
             const node = vnode.split(':')[0];
             if(node === this.nodePort.toString()){
+                if(value === 'false'){
+                    return removeNodes;
+                }else{
+                    console.log('Adding to storage',value);
+                }
+                console.log('Adding to storage',key,value);
                 await this.addtoStorageForce(key,value);
                 return removeNodes;
             }
@@ -453,7 +459,7 @@ class StorageNode {
 
             this.borrowedStorageMutex.release();
             for (const [NodeId, list] of tmpStorageBorrowed) {
-                console.log('Storage borrowed:',NodeId,list);
+                console.log('Storage borrowed:',NodeId,Object.keys(list));
                 const result = await this.sendBorrowedToReplica(NodeId.split(':')[0],list);
                 if(result === true){
                     //update the real storage
@@ -509,7 +515,7 @@ class StorageNode {
             }
         }catch(err){
             request.close();
-            console.log('Failed to receive response Borrowed:', err);
+            console.log('Failed to receive response Borrowed:');
             return false;
         }
     }
@@ -570,7 +576,7 @@ class StorageNode {
         const address = `tcp://localhost:${parseInt(nodeid) + 1}`;
         request.connect(address);
         try{
-            console.log('Going to send Request Update to replica',address);
+            //console.log('Going to send Request Update to replica',address);
             await request.send(['GET_VNODE', vnode.start, vnode.end]);
             console.log('Sent Request Update to replica',address);
             const [type,...packet] = await request.receive();
@@ -595,7 +601,7 @@ class StorageNode {
         }
     }
     async getListsWithinRange(start,end){
-        console.log('Getting list within range',start,end);
+        //console.log('Getting list within range',start,end);
         const startHash = this.consistentHash.getHash(start);
         const endHash = this.consistentHash.getHash(end);
         await this.storageMutex.acquire();
