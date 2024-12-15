@@ -20,7 +20,7 @@ async function main() {
     const coordinator = new Coordinator(coordinatorPort, publishPort);
     await coordinator.initialize();
     console.log('Coordinator started');
-
+    await new Promise(resolve => setTimeout(resolve, 1000));
     // Start Storage Node
     let debug = true
     for (let i = initialStorageNodePort; i < initialStorageNodePort + numberOfNodes*3; i=i+3) {
@@ -74,7 +74,6 @@ async function test(id){
     // Perform GET operation
     console.log('CLIENT GET key:', `key${id}`);
     const crdt = await client.get(`key${id}`);
-    console.log('CLIENT GET value:', crdt);
     //console.log('Tester GET value:', getValue.toString());
     const crdtsList = Aworset.fromJson( crdt);
     const items = crdtsList.getItems();
@@ -98,78 +97,6 @@ async function test(id){
     mutex.release();
     console.log(`Number : ${passed} Passed tests ${passedTests}`);
 
-}
-
-//test hash table
-function testConsistentHash(){
-    const consistent_hash = new ConsistentHash();
-    for (let i = 5569; i > 5562; i--) {
-        consistent_hash.addNode(i);
-    }
-    consistent_hash.removeNode(5563);
-    for (let i = 0; i < 1000; i++) {
-        console.log(consistent_hash.getNode(`key${i}`));
-    }
-}
-
-async function tomatinho(){
-    let coordinatorPort = 5555;
-    let publishPort = 5556;
-
-    let initialStorageNodePort = 5557;
-    let numberOfNodes = 12;
-
-    // Start Coordinator
-    const coordinator = new Coordinator(coordinatorPort, publishPort);
-    coordinator.initialize();
-    console.log('Coordinator started');
-
-    // Start Storage Node
-    for (let i = initialStorageNodePort; i < initialStorageNodePort + numberOfNodes*3; i=i+3) {
-        const storageNode = new StorageNode(i, coordinatorPort, publishPort);
-        storageNode.initialize();
-        console.log(`Storage Node ${i} started`);
-    }
-    // Give some time for nodes to initialize
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    for (let i = 0; i < 3; i++) {
-        test(i);
-        await  new Promise((resolve) => {
-            setTimeout(resolve, 200);
-          });
-    }
-    // Start Client
-}
-
-
-async function testClientOnly() {
-    const client = new Client('localhost', 5555, 0);
-    await client.initialize();
-    console.log('Client started');
-
-
-    // Perform SET operation
-    console.log('CLIENT SET key:', `key${id}`);
-    let shoppingList = new Aworset('replica1', 'Shopping List');
-    const valuesTest = { apple: Math.floor(Math.random() * 10) + 1, banana: Math.floor(Math.random() * 5) + 1, orange: 3 };
-    shoppingList.addItem('apple', valuesTest.apple);
-    shoppingList.addItem('banana', valuesTest.banana);
-    shoppingList.addItem('orange', valuesTest.orange);
-
-    setStatus = await client.set(`key${id}`, shoppingList.toJson());
-    assert.strictEqual(setStatus, 'FAIL', `SET operation failed for key${id}`);
-    console.log('Test Set Operation Passed');
-
-    // Perform GET operation
-    console.log('CLIENT GET key:', `key${id}`);
-    const crdt = await client.get(`key${id}`);
-    console.log('CLIENT GET value:', crdt);
-
-    assert.strictEqual(crdt, 'FAIL', `GET operation failed for key${id}`);
-    console.log('Test Get Operation Passed');
-
-
-    process.exit(0);
 }
 
 //testClientOnly();

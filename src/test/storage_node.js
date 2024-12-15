@@ -114,6 +114,10 @@ class StorageNode {
         for (const vnode of vnodes) {
             const node = vnode.split(':')[0];
             if(node === this.nodePort.toString()){
+                if(value === 'false'){
+                    return removeNodes;
+                }
+                console.log('Adding to storage',key);
                 await this.addtoStorageForce(key,value);
                 return removeNodes;
             }
@@ -189,7 +193,7 @@ class StorageNode {
             console.log('Waiting for packets...');
             const [type,token,...packet] = await this.dealer.receive();// TODO probably expand this to make paralel requests
             // Handle the received packet
-            console.log(`NODE Received packet: ${packet}`);
+            console.log(`NODE Received packet: ${packet[0]}`);
             switch (type.toString()) {
                 case 'GET':
                         const value = await this.getFromStorage(packet[0].toString());
@@ -248,7 +252,8 @@ class StorageNode {
         let crdt = packet[1].toString();
         replicasFailedToWrite = await this.addToStorage(key,crdt,replicasFailedToWrite);
         crdt = await this.getFromStorage(key);
-        console.log("Preference list:",preferenceList,"nReplicas",replicasAproved,"CRDT",crdt,"Token",token,"Entity",entity,"nodePort",this.nodePort);
+        console.log("Preference list:",preferenceList,"nReplicas",replicasAproved,"Token",token,"Entity",entity,"nodePort",this.nodePort);
+        //console.log('CRDT:',crdt);
         replicasAproved--;
         if (replicasAproved > 0) {
             //console.log(packet[2].toString());
@@ -284,7 +289,8 @@ class StorageNode {
         const resendTries = 0;
         let BoolResponse = false;
         while(preferenceList.length > 1){
-            console.log('Sending request to replica',preferenceList[1],this.nodePort,token,key,crdt,preferenceList,replicasAproved);
+            console.log('Sending request to replica',preferenceList[1],this.nodePort,token,key,preferenceList,replicasAproved);
+            //console.log('crdt:',crdt);
             
             const request = new zmq.Request();
             request.receiveTimeout = 300*replicasAproved;//if there are more replicas to be aproved, wait longer
@@ -336,7 +342,7 @@ class StorageNode {
         console.log('Waiting for packets Request packet');
         try{
             const [type,token,...packet] = await request.receive();
-        console.log(`NODE Received packet Request: ${packet}, ${this.nodePort}, $`);
+        console.log(`NODE Received packet Request: ${packet[0]}, ${this.nodePort}, $`);
         switch (type.toString()) {
             case 'PUT_RESPONSE':
                 //console.log(`Received Dealer response ${this.nodePort}`);
@@ -420,7 +426,6 @@ class StorageNode {
                     //update the storage
                     for (const [key,value] of Object.entries(list)) {
                         console.log('Discarding:',key);
-                        console.log('value:',value);
                         this.addToStorage(key,value,[]);
                     }
                     break;
@@ -453,7 +458,7 @@ class StorageNode {
 
             this.borrowedStorageMutex.release();
             for (const [NodeId, list] of tmpStorageBorrowed) {
-                console.log('Storage borrowed:',NodeId,list);
+                console.log('Storage borrowed:',NodeId,Object.keys(list));
                 const result = await this.sendBorrowedToReplica(NodeId.split(':')[0],list);
                 if(result === true){
                     //update the real storage
@@ -509,7 +514,7 @@ class StorageNode {
             }
         }catch(err){
             request.close();
-            console.log('Failed to receive response Borrowed:', err);
+            console.log('Failed to receive response Borrowed:');
             return false;
         }
     }
@@ -570,7 +575,7 @@ class StorageNode {
         const address = `tcp://localhost:${parseInt(nodeid) + 1}`;
         request.connect(address);
         try{
-            console.log('Going to send Request Update to replica',address);
+            //console.log('Going to send Request Update to replica',address);
             await request.send(['GET_VNODE', vnode.start, vnode.end]);
             console.log('Sent Request Update to replica',address);
             const [type,...packet] = await request.receive();
@@ -595,7 +600,7 @@ class StorageNode {
         }
     }
     async getListsWithinRange(start,end){
-        console.log('Getting list within range',start,end);
+        //console.log('Getting list within range',start,end);
         const startHash = this.consistentHash.getHash(start);
         const endHash = this.consistentHash.getHash(end);
         await this.storageMutex.acquire();
