@@ -1,0 +1,12 @@
+[
+  {
+    "name": "hello",
+    "crdt": {
+      "id": "4853e398-0ffb-4c2f-8679-02707533c7493333",
+      "counter": 0,
+      "listname": "hello",
+      "items": [],
+      "removed_items": []
+    }
+  }
+]

@@ -1,5 +1,5 @@
 const zmq = require('zeromq');
-const mutex = require('async-mutex');
+const { Mutex } = require('async-mutex');
 const { spawn } = require('child_process');
 const { response } = require('express');
 class Client {
@@ -11,21 +11,21 @@ class Client {
         this.localStore = new Map();
         this.client_id =client_id;
         this.client_request_id = 0;
-        this.mutex = new mutex.Mutex();
-        this.receiveMutex = new mutex.Mutex();
+        this.mutex = new Mutex();
         this.timeout = 10000;
     }
 
     async initialize() {
-        await this.dealer.connect(`tcp://${this.coordinatorAddress}:${this.coordinatorPort}`);
+        console.log(`tcp://${this.coordinatorAddress}:${this.coordinatorPort}`);
+        this.dealer.connect(`tcp://${this.coordinatorAddress}:${this.coordinatorPort}`);
     }
 
     async sendWithTimeout(request, timeout) {
-        const responsePromise = this.receiveWithMutex();
         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Request timed out')), timeout));
         
         try {
             await this.dealer.send(request);
+            const responsePromise = this.dealer.receive();
             const response = await Promise.race([responsePromise, timeoutPromise]);
             return response;
         } catch (error) {
@@ -34,40 +34,42 @@ class Client {
         }
     }
 
-    async receiveWithMutex() {
-        await this.receiveMutex.acquire();
-        try {
-            const response = await this.dealer.receive();
-            return response;
-        } finally {
-            this.receiveMutex.release();
-        }
-    }
 
-    get_token(){
-        this.mutex.acquire();
+           
+
+
+    async get_token(){
+        console.log('CLIENT GET TOKEN1');
+        await this.mutex.acquire();
+        console.log('CLIENT GET TOKEN2');
         this.client_request_id++;
         this.mutex.release();
         return `${this.client_id},${this.client_request_id}`;
     }
     
     async set(key, value) {
-        const token = this.get_token();
+        const token = await this.get_token();
+        await this.mutex.acquire();
+        console.log('sending set client', token);
         const response = await this.sendWithTimeout(['PUT_CLIENT', token, key, value], this.timeout);
+        console.log('RESPONSE Received Set', response);
         if (response === 'Server not responding') {
             return 'FAIL';
         }
         const [status] = response;
+        this.mutex.release();
+
         return status.toString();
     }
 
     async get(key) {
-        const token = this.get_token();
+        const token = await this.get_token();
         const response = await this.sendWithTimeout(['GET_CLIENT', token, key], this.timeout);
         if (response === 'Server not responding') {
             return 'FAIL';
         }
         const [type, result] = response;
+        this.mutex.release();
         return result.toString();
     }
 }

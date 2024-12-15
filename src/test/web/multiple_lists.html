@@ -37,6 +37,13 @@
         <div class="row">
             <div class="col-md-6 offset-md-3">
                 <div class="list-container">
+                    <h2 class="mb-4">get existing list</h2>
+                    <div class="mb-3">
+                        <input type="text" id="checklist" class="form-control" placeholder="Enter list name">
+                    </div>
+                    <button id="checkListBtn" class="btn btn-primary">Check List</button>
+                </div>
+                <div class="list-container">
                     <h2 class="mb-4">Create New Shopping List</h2>
                     <div class="mb-3">
                         <input type="text" id="newListName" class="form-control" placeholder="Enter list name">
@@ -59,6 +66,7 @@
         // DOM Elements
         const newListNameInput = document.getElementById('newListName');
         const createListBtn = document.getElementById('createListBtn');
+        const checkListBtn = document.getElementById('checkListBtn');
         const existingListsContainer = document.getElementById('existingLists');
         const port = getport();
         
@@ -99,9 +107,30 @@
                 console.log(response);
 
                 const result = await response.json();
+
+                loadExistingLists();
+
                 // Clear input
                 newListNameInput.value = '';
                     
+            } catch (error) {
+                console.error('Error creating list:', error);
+                alert('Failed to create list');
+            }
+        });
+
+        //open web with list id
+        checkListBtn.addEventListener('click', async () => {
+            const listName = document.getElementById('checklist').value.trim();
+            console.log(listName);
+            
+            if (!listName) {
+                alert('Please enter a list name');
+                return;
+            }
+
+            try {
+                    window.location.href = `list.html?id='${listName}'&port=${port}`;
             } catch (error) {
                 console.error('Error creating list:', error);
                 alert('Failed to create list');

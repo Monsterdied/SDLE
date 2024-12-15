@@ -1,1 +1,182 @@
-[{"name":"eeerv","crdt":{"id":"5978e4fa-a467-4310-b2a3-1120785379de","counter":0,"listname":"eeerv","items":[{"name":"bread","counter":{"pCounters":{"5978e4fa-a467-4310-b2a3-1120785379de":2},"nCounters":{"5978e4fa-a467-4310-b2a3-1120785379de":0}}}],"removed_items":[]}},{"name":"eeervv","crdt":{"id":"5978e4fa-a467-4310-b2a3-1120785379de","counter":0,"listname":"eeervv","items":[],"removed_items":[]}},{"name":"hello","crdt":{"id":"5978e4fa-a467-4310-b2a3-1120785379de","counter":0,"listname":"hello","items":[],"removed_items":[]}},{"name":"bob's","crdt":{"id":"5978e4fa-a467-4310-b2a3-1120785379de","counter":0,"listname":"bob's","items":[],"removed_items":[]}},{"name":"bob","crdt":{"id":"5978e4fa-a467-4310-b2a3-1120785379de","counter":0,"listname":"bob","items":[],"removed_items":[]}},{"name":"bob'ss","crdt":{"id":"5978e4fa-a467-4310-b2a3-1120785379de","counter":0,"listname":"bob'ss","items":[],"removed_items":[]}},{"name":"alice","crdt":{"id":"5978e4fa-a467-4310-b2a3-1120785379de","counter":0,"listname":"alice","items":[],"removed_items":[]}},{"name":"joe","crdt":{"id":"5978e4fa-a467-4310-b2a3-1120785379de","counter":0,"listname":"joe","items":[],"removed_items":[]}}]
+[
+  {
+    "name": "eeerv",
+    "crdt": {
+      "id": "5978e4fa-a467-4310-b2a3-1120785379de",
+      "counter": 0,
+      "listname": "eeerv",
+      "items": [
+        {
+          "name": "bread",
+          "counter": {
+            "pCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 1578
+            },
+            "nCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 1576
+            }
+          }
+        },
+        {
+          "name": "potato",
+          "counter": {
+            "id_of_latest_addition": "5978e4fa-a467-4310-b2a3-1120785379de",
+            "pCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 105
+            },
+            "nCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 105
+            }
+          }
+        },
+        {
+          "name": "POTATO",
+          "counter": {
+            "id_of_latest_addition": "5978e4fa-a467-4310-b2a3-1120785379de",
+            "pCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 51
+            },
+            "nCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 51
+            }
+          }
+        },
+        {
+          "name": "get",
+          "counter": {
+            "id_of_latest_addition": "5978e4fa-a467-4310-b2a3-1120785379de",
+            "pCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 17
+            },
+            "nCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 17
+            }
+          }
+        },
+        {
+          "name": "potatoes",
+          "counter": {
+            "id_of_latest_addition": "5978e4fa-a467-4310-b2a3-1120785379de",
+            "pCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 1
+            },
+            "nCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 1
+            }
+          }
+        },
+        {
+          "name": "oki",
+          "counter": {
+            "id_of_latest_addition": "5978e4fa-a467-4310-b2a3-1120785379de",
+            "pCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 1
+            },
+            "nCounters": {
+              "5978e4fa-a467-4310-b2a3-1120785379de": 0
+            }
+          }
+        }
+      ],
+      "removed_items": [
+        "get",
+        "POTATO",
+        "potatoes",
+        "potato"
+      ]
+    }
+  },
+  {
+    "name": "eeervv",
+    "crdt": {
+      "id": "5978e4fa-a467-4310-b2a3-1120785379de",
+      "counter": 0,
+      "listname": "eeervv",
+      "items": [],
+      "removed_items": []
+    }
+  },
+  {
+    "name": "hello",
+    "crdt": {
+      "id": "8940dcaa-0367-44af-b0de-9154f05fde8a3333",
+      "counter": 0,
+      "listname": "hello",
+      "items": [],
+      "removed_items": []
+    }
+  },
+  {
+    "name": "bob's",
+    "crdt": {
+      "id": "5978e4fa-a467-4310-b2a3-1120785379de",
+      "counter": 0,
+      "listname": "bob's",
+      "items": [],
+      "removed_items": []
+    }
+  },
+  {
+    "name": "bob",
+    "crdt": {
+      "id": "8940dcaa-0367-44af-b0de-9154f05fde8a3333",
+      "counter": 0,
+      "listname": "bob",
+      "items": [],
+      "removed_items": []
+    }
+  },
+  {
+    "name": "bob'ss",
+    "crdt": {
+      "id": "5978e4fa-a467-4310-b2a3-1120785379de",
+      "counter": 0,
+      "listname": "bob'ss",
+      "items": [],
+      "removed_items": []
+    }
+  },
+  {
+    "name": "alice",
+    "crdt": {
+      "id": "5978e4fa-a467-4310-b2a3-1120785379de",
+      "counter": 0,
+      "listname": "alice",
+      "items": [],
+      "removed_items": []
+    }
+  },
+  {
+    "name": "joe",
+    "crdt": {
+      "id": "5978e4fa-a467-4310-b2a3-1120785379de",
+      "counter": 0,
+      "listname": "joe",
+      "items": [],
+      "removed_items": []
+    }
+  },
+  {
+    "name": "deg",
+    "crdt": {
+      "id": "8940dcaa-0367-44af-b0de-9154f05fde8a3333",
+      "counter": 0,
+      "listname": "deg",
+      "items": [
+        {
+          "name": "potato",
+          "counter": {
+            "id_of_latest_addition": "8940dcaa-0367-44af-b0de-9154f05fde8a3333",
+            "pCounters": {
+              "8940dcaa-0367-44af-b0de-9154f05fde8a3333": 1
+            },
+            "nCounters": {
+              "8940dcaa-0367-44af-b0de-9154f05fde8a3333": 0
+            }
+          }
+        }
+      ],
+      "removed_items": []
+    }
+  }
+]

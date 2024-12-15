@@ -58,9 +58,8 @@
     <button id="syncCart">Sync List</button>
 
     <script type="module">
-        import { Aworset } from './crdt/Aworset.js';
+    import { Aworset } from './crdt/Aworset.js';
 
-        let list_crdt = new Aworset();
 
         // DOM Elements
         const listNameElement = document.getElementById('listName');
@@ -75,6 +74,7 @@
             name: 'Unnamed List',
             items: []
         };
+        let removed_items = [];
 
         let listId = null;
         let port = null;
@@ -100,6 +100,8 @@
             machineId = machineId + getport();
             return machineId;
         }
+
+        let uniqueID = getMachineId();
 
         // Add item to cart
         addItemBtn.addEventListener('click', () => {
@@ -150,12 +152,7 @@
             if (itemIndex !== -1) {
                 // Ensure quantity doesn't go below 1
                 cartData.items[itemIndex].quantity = Math.max(1, cartData.items[itemIndex].quantity + change);
-                
-                if (change < 0) {
-                    list_crdt.removeItem(name, change);
-                } else {
-                    list_crdt.addItem(name, change);
-                }
+            
                 
                 renderCartItems();
             }
@@ -164,7 +161,8 @@
         // Remove item from cart
         window.removeItem = function(name) {
             cartData.items = cartData.items.filter(item => item.name !== name);
-            list_crdt.removeItem(name);
+            console.log()
+            removed_items.push(name);
             renderCartItems();
         }
 
@@ -172,16 +170,17 @@
         syncCartBtn.addEventListener('click', async () => {
             console.log("id",listId.trim());
             try {
-                const response = await fetch('http://localhost:3000/api/list', {
+                const response = await fetch(`http://localhost:${port}/api/list`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        uniqueId: getMachineId(),
+                        uniqueId: uniqueID,
                         listId: listId.trim(),
                         listName: cartData.name.trim(),
-                        items: cartData.items
+                        items: cartData.items,
+                        removed_items:removed_items
                     })
                 });
                 const result = await response.json();
@@ -206,7 +205,7 @@
 
             try {
                 // Fetch list details
-                const listResponse = await fetch(`http://localhost:3000/api/list?id=${listId}`);
+                const listResponse = await fetch(`http://localhost:${port}/api/list?id=${listId}`);
                 const listData = await listResponse.json();
                 console.log("MERSA",listData);
 
