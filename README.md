@@ -1,7 +1,83 @@
 # SDLE Second Assignment
+# Shopping Lists on the Cloud - Internal Architecture Overview
 
+## Core Data Structure: CRDT Implementation
+
+The application uses two specialized CRDTs (Conflict-Free Replicated Data Types) to handle distributed data consistency:
+
+### AWORSET (Add-Wins Observed Remove Set)
+- **Purpose**: Manages the overall shopping list items (product names and quantities)
+- **Why AWORSET?**: Implements OrMap-style semantics where additions win over removals during conflict resolution
+- **Behavior**: When multiple clients simultaneously add and remove the same item, the add operation prevails, ensuring no items are unintentionally lost
+
+### PNCounter (Positive-Negative Counter)
+- **Purpose**: Tracks individual product quantities
+- **Why PNCounter?**: Allows seamless merging of quantity changes across different clients
+- **Behavior**: Separately tracks increments and decrements, enabling accurate quantity reconciliation even with concurrent updates
+
+## System Architecture
+
+### Component Layers
+
+1. **Client Layer**
+   - Uses ZMQ DEALER sockets to communicate with the Proxy/Coordinator
+   - Each client can create and share shopping lists via unique IDs
+
+2. **Proxy/Coordinator Layer**
+   - Receives requests through ROUTER sockets
+   - Calculates preference lists using consistent hashing
+   - Forwards requests to the first available node in the preference list
+
+3. **Storage Node Layer**
+   - **Socket Types**:
+     - SUBSCRIBER: Receives ring updates
+     - DEALER: Registers the node and handles incoming requests
+     - ROUTER: Communicates with other storage nodes
+     - REQUEST: Propagates PUT commands to subsequent nodes
+
+### Data Distribution: Consistent Hashing
+
+- **Hash Ring**: Circular structure mapping both nodes and data to positions
+- **Virtual Nodes**: Each physical node occupies multiple ring positions for better distribution
+- **Replication Factor (N)**: Each list is replicated to the top K nodes in the preference list
+- **Node Assignment**: Data is stored on the first healthy node encountered after its hash position
+
+### Replica Propagation Strategy
+
+When a write request arrives:
+1. Coordinator forwards to first node in preference list
+2. Node propagates to next node in preference list via REQUEST socket
+3. Propagation continues until required replica count is achieved
+4. Each node sends acknowledgment back through the chain
+5. Client receives confirmation only after quorum requirements are met
+
+### Failure Handling: Hinted Handoffs & Sloppy Quorum
+
+- **Sloppy Quorum**: Writes are approved using the top K *healthy* nodes, not necessarily the first K nodes
+- **Quorum Condition**: R + W > N ensures consistency (Read + Write replicas > Total replicas)
+- **Hinted Handoffs**: When failed nodes recover, temporarily stored replicas are forwarded to them
+
+## Technical Challenges & Solutions
+
+### ZMQ Socket Management
+- **Challenge**: REQ sockets block if no response received; multiple connection attempts fail
+- **Solution**: Implemented proper socket lifecycle management and timeout handling
+
+### Concurrency Control
+- **Challenge**: Parallel operations on shared resources (storage, router.send)
+- **Solution**: Extensive use of mutexes for all non-parallelizable operations
+
+### Virtual Node Complexity
+- **Challenge**: Dynamic addition of nodes complicates rebalancing
+- **Solution**: Careful management of virtual node assignments during cluster changes
+
+## Validation & Testing
+- Comprehensive test suite validating CRDT convergence
+- Network partition simulation
+- Concurrent update resolution testing
+- Node failure and recovery scenarios
 SDLE Second Assignment of group T02G13.
-## After running 
+## Quick Start
 ## run the client ui
 - go to ./src/test/web
 - run the storage nodes by running ```node test_web.json```
